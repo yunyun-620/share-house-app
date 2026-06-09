@@ -870,14 +870,8 @@ img{display:block;max-width:100%}
 <!-- Toast -->
 <div id="toast"></div>
 
-<!-- ── LINE LIFF SDK ── -->
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-
-<!-- ── Supabase JS SDK ── -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-
+<!-- ── 全域錯誤捕捉（獨立區塊，確保能抓到語法錯誤） ── -->
 <script>
-'use strict';
 window.addEventListener('error', function(e) {
   const loading = document.getElementById('loading');
   if(loading) loading.innerHTML = `<div style="padding:20px;color:red;word-break:break-all;"><b>Error:</b> ${e.message}<br>Line: ${e.lineno}</div>`;
@@ -886,6 +880,16 @@ window.addEventListener('unhandledrejection', function(e) {
   const loading = document.getElementById('loading');
   if(loading) loading.innerHTML = `<div style="padding:20px;color:red;word-break:break-all;"><b>Promise Error:</b> ${e.reason?.message || e.reason}</div>`;
 });
+</script>
+
+<!-- ── LINE LIFF SDK ── -->
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<!-- ── Supabase JS SDK ── -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+'use strict';
 
 /* =====================================================
    ⚙️  CONFIG — 填入你的 Supabase 設定
@@ -1544,23 +1548,41 @@ document.querySelectorAll('.tab-item').forEach(t => {
    ===================================================== */
 async function initApp() {
   const loadingEl = document.getElementById('loading');
+  
+  // 建立一個可以顯示在畫面上方的 Debug 訊息工具
+  const debugLog = document.createElement('div');
+  debugLog.style.cssText = 'position:absolute;bottom:20px;font-size:12px;color:#aaa;text-align:center;width:100%;';
+  loadingEl.appendChild(debugLog);
+  const logStep = (msg) => { 
+    console.log('[Init]', msg); 
+    debugLog.innerHTML += `<div>${msg}</div>`; 
+  };
 
-  /* 1. Init Supabase */
+  logStep('1. 初始化 Supabase...');
   state.hasSupabase = initSupabase();
 
-  /* 2. Init LINE LIFF */
+  logStep('2. 初始化 LINE LIFF...');
   try {
     if (location.protocol === 'file:') {
-      throw new Error('本地 file:// 預覽模式不支援 LINE 登入，自動降級為 Demo 模式。請將網頁部署上網後再測試 LINE 登入。');
+      throw new Error('本地 file:// 預覽模式不支援 LINE 登入，降級 Demo 模式。');
     }
     
-    await liff.init({ liffId: LIFF_ID });
+    // 加入 5 秒超時機制，避免 liff.init 卡死
+    await Promise.race([
+      liff.init({ liffId: LIFF_ID }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('LIFF SDK 初始化超時')), 5000))
+    ]);
 
+    logStep('3. 檢查登入狀態...');
     if (!liff.isLoggedIn()) {
+      logStep('尚未登入，準備跳轉 LINE 登入...');
       liff.login({ redirectUri: location.href });
-      return; // redirect 後重跑
+      // 避免跳轉失敗卡在載入畫面
+      loadingEl.innerHTML += `<div style="margin-top:20px;padding:10px;background:#fff;border-radius:8px;color:#ef4444;text-align:center;font-size:13px;max-width:80%;">正在跳轉至 LINE 登入...<br>若沒反應請確認網址是否正確，或<button onclick="location.reload()" style="margin-top:8px;padding:6px 12px;background:#11998e;color:#fff;border-radius:12px;">重新整理</button></div>`;
+      return; 
     }
 
+    logStep('4. 取得使用者資料...');
     const profile = await liff.getProfile();
     state.user.name   = profile.displayName;
     state.user.avatar = profile.pictureUrl;
@@ -1582,23 +1604,30 @@ async function initApp() {
     /* （進階：根據 LINE ID 對應 users 表格中的 member ID） */
 
   } catch (err) {
-    console.warn('LINE LIFF 初始化失敗（可能在瀏覽器預覽模式）:', err.message);
+    console.warn('LINE LIFF 初始化失敗:', err.message);
+    logStep('LIFF 失敗，降級為 Demo 模式: ' + err.message);
     document.getElementById('user-name').textContent = 'Demo 模式';
   }
 
-  /* 3. Fetch data */
-  const [bal, ledger, rentStatus, chores] = await Promise.all([
-    fetchBalance(),
-    fetchLedger(),
-    fetchRentStatus(currentMonth()),
-    fetchChores()
-  ]);
+  logStep('5. 從資料庫抓取資料...');
+  try {
+    const [bal, ledger, rentStatus, chores] = await Promise.all([
+      fetchBalance(),
+      fetchLedger(),
+      fetchRentStatus(currentMonth()),
+      fetchChores()
+    ]);
 
-  state.balance    = bal;
-  state.ledger     = ledger;
-  state.rentStatus = rentStatus;
-  state.chores     = chores;
+    state.balance    = bal;
+    state.ledger     = ledger;
+    state.rentStatus = rentStatus;
+    state.chores     = chores;
+  } catch (dbErr) {
+    logStep('資料庫讀取錯誤: ' + dbErr.message);
+    console.error(dbErr);
+  }
 
+  logStep('6. 渲染畫面...');
   /* 4. Render */
   renderBalance(false);
   renderLedger();
@@ -1608,6 +1637,7 @@ async function initApp() {
   /* 5. Subscribe Realtime */
   subscribeRealtime();
 
+  logStep('完成！隱藏載入畫面...');
   /* 6. Hide Loading */
   loadingEl.classList.add('hidden');
 }

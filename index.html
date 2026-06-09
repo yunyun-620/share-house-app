@@ -915,14 +915,14 @@ const MEMBERS = [
 /* =====================================================
    🔌  SUPABASE CLIENT
    ===================================================== */
-let supabase = null;
+let db = null;
 
 function initSupabase() {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
     console.warn('⚠️ 尚未填入 Supabase 設定，使用 Demo 資料');
     return false;
   }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   return true;
 }
 
@@ -980,8 +980,8 @@ function fmtDate(iso) {
 
 /* 讀取公積金餘額 */
 async function fetchBalance() {
-  if (!supabase) return 1550; // demo
-  const { data, error } = await supabase
+  if (!db) return 1550; // demo
+  const { data, error } = await db
     .from('fund_status')
     .select('current_balance')
     .order('last_updated', { ascending: false })
@@ -993,8 +993,8 @@ async function fetchBalance() {
 
 /* 更新公積金餘額 */
 async function updateBalance(newBalance) {
-  if (!supabase) return true;
-  const { error } = await supabase
+  if (!db) return true;
+  const { error } = await db
     .from('fund_status')
     .update({ current_balance: newBalance, last_updated: new Date().toISOString() })
     .neq('id', 0); // update the single row
@@ -1003,14 +1003,14 @@ async function updateBalance(newBalance) {
 
 /* 讀取最新 10 筆流水帳 */
 async function fetchLedger(limit = 10) {
-  if (!supabase) {
+  if (!db) {
     return [ // demo data
       { id:3, title:'殺蟑神器 & 垃圾袋', amount:320, type:'expense',  created_by:'隊員 B', created_at: new Date(Date.now()-86400000*0).toISOString() },
       { id:2, title:'衛生紙 3 串',        amount:250, type:'expense',  created_by:'隊員 A', created_at: new Date(Date.now()-86400000*1).toISOString() },
       { id:1, title:'公積金儲值（三人）',  amount:1500,type:'income',   created_by:'全體',  created_at: new Date(Date.now()-86400000*9).toISOString() },
     ];
   }
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('finance_ledger')
     .select('*')
     .order('created_at', { ascending: false })
@@ -1021,8 +1021,8 @@ async function fetchLedger(limit = 10) {
 
 /* 插入一筆流水帳 */
 async function insertLedger({ title, amount, type, createdBy }) {
-  if (!supabase) return { id: Date.now(), title, amount, type, created_by: createdBy, created_at: new Date().toISOString() };
-  const { data, error } = await supabase
+  if (!db) return { id: Date.now(), title, amount, type, created_by: createdBy, created_at: new Date().toISOString() };
+  const { data, error } = await db
     .from('finance_ledger')
     .insert([{ title, amount, type, created_by: createdBy }])
     .select()
@@ -1033,10 +1033,10 @@ async function insertLedger({ title, amount, type, createdBy }) {
 
 /* 讀取本月房租狀態 */
 async function fetchRentStatus(month) {
-  if (!supabase) {
+  if (!db) {
     return { A: 'confirmed', B: 'paid', C: 'unpaid' }; // demo
   }
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('rent_status')
     .select('user_id, status')
     .eq('billing_month', month);
@@ -1048,8 +1048,8 @@ async function fetchRentStatus(month) {
 
 /* 更新房租狀態 */
 async function updateRentStatus(userId, month, status) {
-  if (!supabase) return true;
-  const { error } = await supabase
+  if (!db) return true;
+  const { error } = await db
     .from('rent_status')
     .upsert([{ user_id: userId, billing_month: month, status, paid_at: status === 'paid' ? new Date().toISOString() : null }],
       { onConflict: 'billing_month,user_id' });
@@ -1058,13 +1058,13 @@ async function updateRentStatus(userId, month, status) {
 
 /* 讀取最新打掃紀錄 */
 async function fetchChores(limit = 5) {
-  if (!supabase) {
+  if (!db) {
     return [
       { id:2, chore_name: '倒垃圾', done_by: '隊員 C', done_at: new Date(Date.now()-86400000*1).toISOString() },
       { id:1, chore_name: '刷廁所', done_by: '隊員 A', done_at: new Date(Date.now()-86400000*2).toISOString() },
     ];
   }
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('chore_log')
     .select('*')
     .order('done_at', { ascending: false })
@@ -1075,8 +1075,8 @@ async function fetchChores(limit = 5) {
 
 /* 插入打掃紀錄 */
 async function insertChore(choreName) {
-  if (!supabase) return { id: Date.now(), chore_name: choreName, done_by: state.user.name, done_at: new Date().toISOString() };
-  const { data, error } = await supabase
+  if (!db) return { id: Date.now(), chore_name: choreName, done_by: state.user.name, done_at: new Date().toISOString() };
+  const { data, error } = await db
     .from('chore_log')
     .insert([{ chore_name: choreName, done_by: state.user.name }])
     .select()
@@ -1087,11 +1087,11 @@ async function insertChore(choreName) {
 
 /* 插入電費帳單 */
 async function insertElectricityBill(billData) {
-  if (!supabase) {
+  if (!db) {
     console.log('Demo mode inserting electricity bill:', billData);
     return { id: Date.now(), ...billData, created_at: new Date().toISOString() };
   }
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('electricity_bills')
     .insert([billData])
     .select()
@@ -1102,8 +1102,8 @@ async function insertElectricityBill(billData) {
 
 /* 即時訂閱 fund_status 變更 */
 function subscribeRealtime() {
-  if (!supabase) return;
-  supabase.channel('fund-rt')
+  if (!db) return;
+  db.channel('fund-rt')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'fund_status' }, async () => {
       const bal = await fetchBalance();
       const prev = state.balance;
@@ -1112,21 +1112,21 @@ function subscribeRealtime() {
     })
     .subscribe();
 
-  supabase.channel('ledger-rt')
+  db.channel('ledger-rt')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'finance_ledger' }, async () => {
       state.ledger = await fetchLedger();
       renderLedger();
     })
     .subscribe();
 
-  supabase.channel('rent-rt')
+  db.channel('rent-rt')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'rent_status' }, async () => {
       state.rentStatus = await fetchRentStatus(currentMonth());
       renderRentList();
     })
     .subscribe();
 
-  supabase.channel('chore-rt')
+  db.channel('chore-rt')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chore_log' }, async () => {
       state.chores = await fetchChores();
       renderChoreList();

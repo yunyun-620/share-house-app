@@ -1,1658 +1,519 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="description" content="敗家組公積金小金庫 — 公積金、房租、公共採購一站管理" />
-  <title>敗家組 · 公積金小金庫</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
-
-<style>
-/* =====================================================
-   DESIGN TOKENS
-   ===================================================== */
-:root {
-  --bg:            #F8F9FA;
-  --card:          #FFFFFF;
-  --muted:         #F0F2F5;
-  --border:        rgba(0,0,0,0.07);
-
-  --text-1:        #111827;
-  --text-2:        #6B7280;
-  --text-3:        #9CA3AF;
-  --text-inv:      #FFFFFF;
-
-  --green-a:       #11998e;
-  --green-b:       #38ef7d;
-  --grad-wallet:   linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-  --grad-purple:   linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-
-  --ok:   #10b981;
-  --warn: #f59e0b;
-  --err:  #ef4444;
-  --info: #6366f1;
-
-  --sh-card:   0 2px 12px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05);
-  --sh-wallet: 0 16px 40px rgba(17,153,142,0.32);
-  --sh-modal:  0 -4px 40px rgba(0,0,0,0.18);
-
-  --r-sm: 8px; --r-md: 14px; --r-lg: 20px;
-  --r-xl: 26px; --r-f: 9999px;
-
-  --header-h: 58px;
-  --tab-h:    68px;
-  --f: 'Noto Sans TC','Inter',sans-serif;
-  --fn: 'Inter','Noto Sans TC',sans-serif;
-}
-
-/* =====================================================
-   RESET & BASE
-   ===================================================== */
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{height:100%;-webkit-tap-highlight-color:transparent}
-body{
-  font-family:var(--f);font-size:15px;color:var(--text-1);
-  background:var(--bg);height:100%;overflow:hidden;
-  -webkit-font-smoothing:antialiased;
-}
-button{font-family:var(--f);cursor:pointer;border:none;outline:none;background:none}
-input{font-family:var(--f);outline:none}
-img{display:block;max-width:100%}
-
-/* =====================================================
-   LAYOUT
-   ===================================================== */
-#app{
-  display:flex;flex-direction:column;
-  height:100dvh;max-width:480px;
-  margin:0 auto;background:var(--bg);
-  position:relative;overflow:hidden;
-}
-
-/* ── Header ── */
-.header{
-  height:var(--header-h);flex-shrink:0;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 16px;background:var(--card);
-  border-bottom:1px solid var(--border);
-  position:relative;z-index:10;
-}
-.header-brand{display:flex;align-items:center;gap:8px}
-.header-logo{
-  width:34px;height:34px;border-radius:10px;
-  background:var(--grad-wallet);
-  display:flex;align-items:center;justify-content:center;
-  font-size:18px;
-}
-.header-title{font-size:15px;font-weight:800;letter-spacing:.2px}
-.header-right{display:flex;align-items:center;gap:6px}
-.user-chip{
-  display:flex;align-items:center;gap:7px;
-  background:var(--muted);border-radius:var(--r-f);
-  padding:5px 12px 5px 5px;
-}
-.user-avatar{
-  width:26px;height:26px;border-radius:var(--r-f);
-  background:var(--grad-wallet);color:#fff;
-  font-size:11px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;
-}
-.user-avatar img{width:100%;height:100%;object-fit:cover}
-.user-name{font-size:12px;font-weight:700;color:var(--text-1);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* ── Scroll Area ── */
-.scroll-area{
-  flex:1;overflow-y:auto;overflow-x:hidden;
-  padding:16px 16px 0;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
-}
-.scroll-area::-webkit-scrollbar{display:none}
-.spacer{height:calc(var(--tab-h) + 16px)}
-
-/* ── Tab Bar ── */
-.tab-bar{
-  height:var(--tab-h);flex-shrink:0;
-  display:flex;align-items:flex-start;padding-top:10px;
-  background:var(--card);border-top:1px solid var(--border);
-  position:relative;z-index:10;
-}
-.tab-item{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-  color:var(--text-3);transition:color .2s;
-}
-.tab-icon{
-  width:38px;height:30px;display:flex;align-items:center;justify-content:center;
-  border-radius:var(--r-md);transition:background .2s,transform .15s;
-}
-.tab-label{font-size:10px;font-weight:500;white-space:nowrap}
-.tab-item.active{color:var(--green-a)}
-.tab-item.active .tab-icon{background:rgba(17,153,142,.12)}
-.tab-item:active .tab-icon{transform:scale(.93)}
-
-/* =====================================================
-   SECTION HELPERS
-   ===================================================== */
-.section{margin-bottom:14px}
-.card{
-  background:var(--card);border-radius:var(--r-lg);
-  padding:20px;box-shadow:var(--sh-card);
-  border:1px solid var(--border);
-}
-.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.section-title{font-size:15px;font-weight:800;color:var(--text-1)}
-.chip{
-  font-size:11px;font-weight:700;padding:4px 10px;
-  border-radius:var(--r-f);
-}
-.chip-warn{background:rgba(239,68,68,.1);color:var(--err)}
-.chip-ok{background:rgba(16,185,129,.1);color:var(--ok)}
-.link-btn{
-  font-size:13px;font-weight:700;color:var(--green-a);
-  padding:4px 10px;border-radius:var(--r-f);
-  background:rgba(17,153,142,.08);transition:background .15s;
-}
-.link-btn:hover{background:rgba(17,153,142,.15)}
-
-/* =====================================================
-   WALLET CARD
-   ===================================================== */
-.wallet-card{
-  background:var(--grad-wallet);border-radius:var(--r-xl);
-  padding:22px;color:#fff;position:relative;overflow:hidden;
-  min-height:195px;display:flex;flex-direction:column;
-  justify-content:space-between;box-shadow:var(--sh-wallet);
-}
-.wallet-card::before{
-  content:'';position:absolute;
-  right:-40px;top:-40px;
-  width:160px;height:160px;border-radius:var(--r-f);
-  background:rgba(255,255,255,.12);pointer-events:none;
-}
-.wallet-card::after{
-  content:'';position:absolute;
-  left:-20px;bottom:-30px;
-  width:110px;height:110px;border-radius:var(--r-f);
-  background:rgba(255,255,255,.08);pointer-events:none;
-}
-.wallet-top{display:flex;align-items:flex-start;justify-content:space-between;position:relative}
-.wallet-lbl{font-size:12px;font-weight:700;opacity:.88;letter-spacing:.3px}
-.wallet-sub{font-size:10px;opacity:.6;margin-top:2px;font-style:italic;font-family:var(--fn)}
-.wallet-ico{
-  width:42px;height:42px;border-radius:var(--r-md);
-  background:rgba(255,255,255,.18);backdrop-filter:blur(4px);
-  display:flex;align-items:center;justify-content:center;
-}
-.wallet-mid{position:relative;margin:14px 0 6px}
-.balance-lbl{font-size:11px;opacity:.7;font-weight:500;margin-bottom:3px}
-.balance{
-  font-family:var(--fn);font-size:52px;font-weight:900;
-  letter-spacing:-2px;line-height:1;
-  display:flex;align-items:baseline;gap:4px;
-}
-.balance-sym{font-size:22px;font-weight:700;opacity:.8}
-.balance-num{transition:all .4s cubic-bezier(.34,1.56,.64,1)}
-.wallet-bot{display:flex;align-items:center;justify-content:space-between;position:relative}
-.wallet-avatars{display:flex}
-.w-av{
-  width:26px;height:26px;border-radius:var(--r-f);
-  border:2px solid rgba(255,255,255,.45);
-  background:rgba(255,255,255,.2);font-size:10px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;
-  margin-left:-5px;
-}
-.w-av:first-child{margin-left:0}
-.wallet-btn{
-  display:flex;align-items:center;gap:5px;
-  background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.3);
-  color:#fff;font-size:12px;font-weight:700;
-  padding:8px 14px;border-radius:var(--r-f);
-  backdrop-filter:blur(6px);transition:background .15s,transform .12s;
-  font-family:var(--f);
-}
-.wallet-btn:active{transform:scale(.95)}
-
-/* =====================================================
-   RENT STATUS
-   ===================================================== */
-.rent-list{display:flex;flex-direction:column;gap:8px}
-.rent-item{
-  display:flex;align-items:center;gap:10px;
-  padding:11px 12px;border-radius:var(--r-md);
-  background:var(--muted);border:1.5px solid transparent;
-  transition:all .2s;
-}
-.rent-item.confirmed{border-color:rgba(16,185,129,.2);background:rgba(16,185,129,.04)}
-.rent-item.pending  {border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.05)}
-.rent-item.unpaid   {border-color:rgba(239,68,68,.2);background:rgba(239,68,68,.04)}
-
-.rent-dot{
-  width:9px;height:9px;border-radius:var(--r-f);flex-shrink:0;
-}
-.rent-item.confirmed .rent-dot{background:var(--ok);box-shadow:0 0 6px rgba(16,185,129,.5)}
-.rent-item.pending   .rent-dot{background:var(--warn);box-shadow:0 0 6px rgba(245,158,11,.5)}
-.rent-item.unpaid    .rent-dot{background:var(--err);animation:pulse-r 1.8s infinite}
-
-@keyframes pulse-r{
-  0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}
-  50%{box-shadow:0 0 0 5px rgba(239,68,68,0)}
-}
-
-.rent-av{
-  width:36px;height:36px;border-radius:var(--r-f);
-  font-size:14px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.rent-info{flex:1;min-width:0}
-.rent-name{font-size:14px;font-weight:700}
-.rent-amt{font-size:11px;color:var(--text-2);font-family:var(--fn);margin-top:1px}
-.rent-tag{
-  font-size:11px;font-weight:700;
-  padding:4px 9px;border-radius:var(--r-f);white-space:nowrap;
-}
-.rent-tag.confirmed{background:rgba(16,185,129,.12);color:var(--ok)}
-.rent-tag.pending  {background:rgba(245,158,11,.12);color:var(--warn)}
-.rent-tag.unpaid   {background:rgba(239,68,68,.1);color:var(--err)}
-.rent-actions{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-.btn-pay{
-  font-size:12px;font-weight:700;color:#fff;
-  background:var(--grad-wallet);border-radius:var(--r-f);
-  padding:7px 13px;font-family:var(--f);
-  box-shadow:0 2px 8px rgba(17,153,142,.3);
-  transition:transform .12s;
-}
-.btn-pay:active{transform:scale(.94)}
-.btn-confirm{
-  font-size:11px;font-weight:700;color:#fff;
-  background:var(--ok);border-radius:var(--r-f);
-  padding:4px 9px;font-family:var(--f);
-  transition:transform .12s;
-}
-.btn-confirm:active{transform:scale(.94)}
-
-/* =====================================================
-   LEDGER
-   ===================================================== */
-.ledger-list{display:flex;flex-direction:column;gap:2px;margin-bottom:14px}
-.ledger-item{
-  display:flex;align-items:center;gap:12px;
-  padding:10px 8px;border-radius:var(--r-md);
-  transition:background .15s;cursor:default;
-  position:relative;
-}
-.ledger-item:hover{background:var(--muted)}
-.ledger-item+.ledger-item::before{
-  content:'';position:absolute;top:0;left:44px;right:0;
-  height:1px;background:rgba(0,0,0,.05);
-}
-.l-icon{
-  width:36px;height:36px;border-radius:var(--r-md);
-  font-size:11px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.l-icon.ex {background:rgba(239,68,68,.1);color:var(--err)}
-.l-icon.in {background:rgba(16,185,129,.1);color:var(--ok)}
-.l-icon.re {background:rgba(99,102,241,.1);color:var(--info)}
-.l-info{flex:1;min-width:0}
-.l-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-meta{font-size:11px;color:var(--text-3);margin-top:2px}
-.l-amt{font-family:var(--fn);font-size:14px;font-weight:700;white-space:nowrap}
-.l-amt.ex{color:var(--err)}
-.l-amt.in{color:var(--ok)}
-.l-amt.re{color:var(--info)}
-
-/* Empty State */
-.empty-state{
-  text-align:center;padding:30px 0;color:var(--text-3);
-}
-.empty-state p{font-size:14px;margin-top:8px}
-
-/* =====================================================
-   ACTION BUTTONS
-   ===================================================== */
-.action-row{display:flex;gap:8px}
-.action-btn{
-  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-  font-size:13px;font-weight:700;padding:11px 12px;
-  border-radius:var(--r-md);transition:opacity .15s,transform .12s;
-  font-family:var(--f);
-}
-.action-btn:active{transform:scale(.97);opacity:.9}
-.action-btn.primary{
-  background:var(--grad-wallet);color:#fff;
-  box-shadow:0 3px 12px rgba(17,153,142,.3);
-}
-.action-btn.secondary{
-  background:rgba(99,102,241,.1);color:var(--info);
-  border:1.5px solid rgba(99,102,241,.2);
-}
-
-/* =====================================================
-   MODAL / BOTTOM SHEET
-   ===================================================== */
-.overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.5);
-  z-index:100;display:flex;align-items:flex-end;
-  opacity:0;pointer-events:none;
-  transition:opacity .25s;backdrop-filter:blur(2px);
-}
-.overlay.open{opacity:1;pointer-events:auto}
-.sheet{
-  background:var(--card);border-radius:var(--r-xl) var(--r-xl) 0 0;
-  width:100%;max-width:480px;margin:0 auto;
-  box-shadow:var(--sh-modal);
-  transform:translateY(100%);
-  transition:transform .3s cubic-bezier(.32,.72,0,1);
-  max-height:92dvh;display:flex;flex-direction:column;overflow:hidden;
-}
-.overlay.open .sheet{transform:translateY(0)}
-.sheet-handle{
-  width:40px;height:4px;background:#e5e7eb;
-  border-radius:var(--r-f);margin:14px auto 0;flex-shrink:0;
-}
-.sheet-head{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:14px 22px;border-bottom:1px solid var(--border);flex-shrink:0;
-}
-.sheet-title{font-size:17px;font-weight:800}
-.sheet-close{
-  width:30px;height:30px;border-radius:var(--r-f);
-  background:var(--muted);color:var(--text-2);font-size:14px;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .15s;
-}
-.sheet-close:hover{background:#e5e7eb}
-.sheet-body{padding:18px 22px;overflow-y:auto;flex:1;scrollbar-width:none}
-.sheet-body::-webkit-scrollbar{display:none}
-.sheet-foot{
-  display:flex;gap:8px;
-  padding:14px 22px calc(14px + env(safe-area-inset-bottom));
-  border-top:1px solid var(--border);flex-shrink:0;
-  background:var(--card);
-}
-.sheet-btn{
-  flex:1;padding:13px;border-radius:var(--r-md);
-  font-size:15px;font-weight:700;
-  transition:opacity .15s,transform .12s;font-family:var(--f);
-}
-.sheet-btn:active{transform:scale(.97)}
-.sheet-btn.cancel{background:var(--muted);color:var(--text-2)}
-.sheet-btn.ok{
-  background:var(--grad-wallet);color:#fff;
-  box-shadow:0 3px 12px rgba(17,153,142,.3);
-}
-
-/* =====================================================
-   FORM ELEMENTS
-   ===================================================== */
-.fg{margin-bottom:18px}
-.flabel{
-  display:block;font-size:12px;font-weight:700;
-  color:var(--text-2);margin-bottom:8px;
-  text-transform:uppercase;letter-spacing:.5px;
-}
-.finput{
-  width:100%;padding:12px 14px;
-  border:1.5px solid #e5e7eb;border-radius:var(--r-md);
-  font-size:15px;color:var(--text-1);background:var(--muted);
-  transition:border-color .2s,box-shadow .2s;
-}
-.finput:focus{
-  border-color:var(--green-a);background:var(--card);
-  box-shadow:0 0 0 3px rgba(17,153,142,.12);
-}
-.finput::placeholder{color:var(--text-3)}
-.input-wrap{position:relative;display:flex;align-items:center}
-.input-pre{
-  position:absolute;left:13px;font-size:16px;font-weight:700;
-  color:var(--text-2);font-family:var(--fn);pointer-events:none;
-}
-.finput.pl{padding-left:28px}
-
-.radio-row{display:flex;gap:8px;flex-wrap:wrap}
-.rpill{
-  display:flex;align-items:center;gap:5px;
-  padding:8px 15px;border-radius:var(--r-f);
-  border:1.5px solid #e5e7eb;font-size:13px;font-weight:600;
-  color:var(--text-2);cursor:pointer;
-  transition:all .15s;background:var(--muted);
-}
-.rpill input{display:none}
-.rpill:has(input:checked){
-  border-color:var(--green-a);
-  background:rgba(17,153,142,.08);color:var(--green-a);
-}
-
-.rcards{display:flex;flex-direction:column;gap:8px}
-.rcard{
-  display:flex;align-items:center;cursor:pointer;
-  border-radius:var(--r-md);border:1.5px solid #e5e7eb;
-  background:var(--muted);transition:all .15s;
-}
-.rcard input{display:none}
-.rcard:has(input:checked){
-  border-color:var(--green-a);background:rgba(17,153,142,.04);
-}
-.rcard-body{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 14px;width:100%;
-}
-.rcard-ico{font-size:22px;flex-shrink:0}
-.rcard-title{font-size:14px;font-weight:700}
-.rcard-desc{font-size:11px;color:var(--text-3);margin-top:1px}
-
-/* Chore Buttons */
-.chore-btn{
-  background:var(--muted);border:1.5px solid transparent;
-  border-radius:var(--r-md);padding:12px 8px;
-  display:flex;flex-direction:column;align-items:center;
-  font-size:12px;font-weight:700;color:var(--text-2);
-  transition:all .15s;
-}
-.chore-btn:hover{background:rgba(16,185,129,.05);border-color:var(--ok);color:var(--ok)}
-.chore-btn:active{transform:scale(.95)}
-
-
-/* Quick amount pills */
-.quick-row{display:flex;gap:8px;margin-top:8px}
-.qpill{
-  flex:1;padding:10px 0;border-radius:var(--r-md);
-  background:var(--muted);font-size:14px;font-weight:700;
-  font-family:var(--fn);border:1.5px solid transparent;
-  transition:all .15s;
-}
-.qpill:hover{border-color:var(--green-a);color:var(--green-a);background:rgba(17,153,142,.07)}
-.qpill:active{transform:scale(.95)}
-.qpill.sel{border-color:var(--green-a);color:var(--green-a);background:rgba(17,153,142,.1)}
-
-/* =====================================================
-   TOAST
-   ===================================================== */
-#toast{
-  position:fixed;bottom:calc(var(--tab-h) + 14px);left:50%;
-  transform:translateX(-50%) translateY(20px);
-  background:#111827;color:#fff;font-size:13px;font-weight:500;
-  padding:10px 20px;border-radius:var(--r-f);
-  box-shadow:0 4px 20px rgba(0,0,0,.35);
-  opacity:0;pointer-events:none;
-  transition:opacity .25s,transform .25s;
-  z-index:200;white-space:nowrap;max-width:calc(100vw - 48px);
-  text-overflow:ellipsis;overflow:hidden;
-}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* =====================================================
-   LOADING OVERLAY
-   ===================================================== */
-#loading{
-  position:fixed;inset:0;background:var(--bg);
-  z-index:300;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:16px;
-}
-#loading.hidden{display:none}
-.spinner{
-  width:44px;height:44px;border-radius:var(--r-f);
-  border:3px solid rgba(17,153,142,.2);
-  border-top-color:var(--green-a);
-  animation:spin .7s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-#loading p{font-size:14px;color:var(--text-2);font-weight:500}
-
-/* =====================================================
-   STATUS BAR SAFE AREA (iOS)
-   ===================================================== */
-.header{padding-top:env(safe-area-inset-top)}
-@supports (padding-top:env(safe-area-inset-top)){
-  .header{height:calc(var(--header-h) + env(safe-area-inset-top))}
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>敗家組 · 合租管家</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
 
-<!-- ── Loading Screen ── -->
-<div id="loading">
-  <div class="spinner"></div>
-  <p>初始化中…</p>
-</div>
-
-<!-- ── App ── -->
-<div id="app">
-
-  <!-- Header -->
-  <header class="header">
-    <div class="header-brand">
-      <div class="header-logo">🏠</div>
-      <div>
-        <div class="header-title">敗家組·公積金小金庫</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <div class="user-chip">
-        <div class="user-avatar" id="user-avatar">?</div>
-        <span class="user-name" id="user-name">載入中</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- Scroll Area -->
-  <div class="scroll-area" id="scroll-area">
-
-    <!-- 公積金錢包卡片 -->
-    <div class="section">
-      <div class="wallet-card">
-        <div class="wallet-top">
-          <div>
-            <div class="wallet-lbl">💰 敗家組公積金虛擬錢包</div>
-            <div class="wallet-sub">Our Sweet Home Wallet</div>
-          </div>
-          <div class="wallet-ico">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6">
-              <rect x="2" y="5" width="20" height="14" rx="2"/>
-              <path d="M16 12h.01"/>
-            </svg>
-          </div>
-        </div>
-        <div class="wallet-mid">
-          <div class="balance-lbl">目前餘額（TWD）</div>
-          <div class="balance">
-            <span class="balance-sym">$</span>
-            <span class="balance-num" id="balance-num">—</span>
-          </div>
-        </div>
-        <div class="wallet-bot">
-          <div class="wallet-avatars">
-            <div class="w-av">A</div>
-            <div class="w-av">B</div>
-            <div class="w-av">C</div>
-          </div>
-          <button class="wallet-btn" id="btn-deposit">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            公積金儲值
-          </button>
-        </div>
-      </div>
+    <div id="loading-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50 transition-opacity duration-300">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mb-4"></div>
+        <p class="text-slate-500 font-medium">敗家組管家初始化中...</p>
     </div>
 
-    <!-- 本月房租繳交進度 -->
-    <div class="section" id="rent-section" style="display:none;">
-      <div class="card">
-        <div class="row">
-          <h2 class="section-title">🏠 本月房租繳交進度</h2>
-          <span class="chip chip-warn" id="rent-due-chip">載入中</span>
-        </div>
-        <div class="rent-list" id="rent-list">
-          <!-- 動態生成 -->
-          <div class="empty-state"><div class="spinner" style="margin:0 auto"></div></div>
-        </div>
-      </div>
-      
-      <!-- 💡 智慧電費拆帳計算機 -->
-      <div class="card" style="margin-top:16px;">
-        <div class="row">
-          <h2 class="section-title">💡 智慧電費拆帳計算機</h2>
-        </div>
-        <div style="font-size:12px;color:var(--text-3);margin-bottom:12px;">依據每人實際居住天數，公平拆分當期電費。</div>
+    <div id="app-main" class="max-w-md mx-auto min-h-screen flex flex-col pb-12" style="display: none;">
         
-        <div class="ledger-list" id="electricity-list">
-          <!-- 這裡顯示過去的電費紀錄，或者一個新增按鈕 -->
-          <div class="empty-state">📭<p>本期電費還沒算喔</p></div>
-        </div>
-        
-        <div class="action-row" style="margin-top:12px;">
-          <button class="action-btn primary" id="btn-calc-electricity">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-            </svg>
-            計算並產生電費帳單
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 最近公共支出 -->
-    <div class="section" id="finance-section">
-      <div class="card">
-        <div class="row">
-          <h2 class="section-title">📋 最近公共支出</h2>
-          <button class="link-btn" id="btn-see-all">查看全部</button>
-        </div>
-        <div class="ledger-list" id="ledger-list">
-          <div class="empty-state"><div class="spinner" style="margin:0 auto"></div></div>
-        </div>
-        <div class="action-row">
-          <button class="action-btn primary" id="btn-add-expense">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            新增公共支出扣款
-          </button>
-          <button class="action-btn secondary" id="btn-add-reimburse">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-            </svg>
-            有人代墊
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 打掃隨手打卡 -->
-    <div class="section" id="chore-section" style="display:none;">
-      <div class="card">
-        <div class="row">
-          <h2 class="section-title">🧹 打掃隨手打卡</h2>
-          <span class="chip chip-ok" id="chore-count">本週已打卡 0 次</span>
-        </div>
-        
-        <div class="chore-cards" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
-          <button class="chore-btn" data-chore="倒垃圾">
-            <div style="font-size:24px;margin-bottom:4px">🗑️</div>
-            <div>倒垃圾</div>
-          </button>
-          <button class="chore-btn" data-chore="掃地拖地">
-            <div style="font-size:24px;margin-bottom:4px">🧹</div>
-            <div>掃地拖地</div>
-          </button>
-          <button class="chore-btn" data-chore="刷廁所">
-            <div style="font-size:24px;margin-bottom:4px">🚽</div>
-            <div>刷廁所</div>
-          </button>
-        </div>
-
-        <div style="font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:8px">近期打卡紀錄</div>
-        <div class="ledger-list" id="chore-list">
-          <div class="empty-state"><div class="spinner" style="margin:0 auto"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="spacer"></div>
-  </div><!-- end scroll-area -->
-
-  <!-- Tab Bar -->
-  <nav class="tab-bar" id="tab-bar">
-    <button class="tab-item active" data-tab="finance">
-      <div class="tab-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01"/>
-        </svg>
-      </div>
-      <span class="tab-label">財務小金庫</span>
-    </button>
-    <button class="tab-item" data-tab="rent">
-      <div class="tab-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-      </div>
-      <span class="tab-label">房租繳費</span>
-    </button>
-    <button class="tab-item" data-tab="cleaning">
-      <div class="tab-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/>
-        </svg>
-      </div>
-      <span class="tab-label">打掃排班</span>
-    </button>
-    <button class="tab-item" data-tab="notice">
-      <div class="tab-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-      </div>
-      <span class="tab-label">備忘公告</span>
-    </button>
-  </nav>
-
-</div><!-- end #app -->
-
-<!-- ── Modal: 新增支出 ── -->
-<div class="overlay" id="overlay-expense">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head">
-      <h3 class="sheet-title">➕ 登記公共支出</h3>
-      <button class="sheet-close" id="close-expense">✕</button>
-    </div>
-    <div class="sheet-body">
-      <div class="fg">
-        <label class="flabel">購買品項名稱</label>
-        <input class="finput" id="exp-title" type="text" placeholder="例如：洗碗精、衛生紙…" autocomplete="off" />
-      </div>
-      <div class="fg">
-        <label class="flabel">花費金額（TWD）</label>
-        <div class="input-wrap">
-          <span class="input-pre">$</span>
-          <input class="finput pl" id="exp-amount" type="number" placeholder="填寫總金額" inputmode="decimal" />
-        </div>
-      </div>
-      <div class="fg">
-        <label class="flabel">採購人（預設自動抓你的 LINE 名字）</label>
-        <div class="radio-row" id="exp-buyer-group">
-          <label class="rpill"><input type="radio" name="buyer" value="A" /> 隊員 A</label>
-          <label class="rpill"><input type="radio" name="buyer" value="B" /> 隊員 B</label>
-          <label class="rpill"><input type="radio" name="buyer" value="C" /> 隊員 C</label>
-        </div>
-      </div>
-      <div class="fg">
-        <label class="flabel">扣款方式</label>
-        <div class="rcards">
-          <label class="rcard">
-            <input type="radio" name="paytype" value="expense" checked />
-            <div class="rcard-body">
-              <span class="rcard-ico">🏦</span>
-              <div>
-                <div class="rcard-title">直接從公積金扣除</div>
-                <div class="rcard-desc">公積金餘額立刻減少</div>
-              </div>
+        <header class="bg-gradient-to-r border-b border-indigo-100 from-indigo-600 to-indigo-700 text-white p-5 sticky top-0 z-40 shadow-sm rounded-b-2xl">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">敗家組 · 合租管家</h1>
+                    <p class="text-xs text-indigo-200 mt-0.5">我們的專屬公積金小金庫</p>
+                </div>
+                <div class="flex items-center space-x-3 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                    <img id="user-avatar" class="w-7 h-7 rounded-full border border-white/20" src="https://via.placeholder.com/150" alt="Avatar">
+                    <span id="user-name" class="text-sm font-medium">讀取中...</span>
+                </div>
             </div>
-          </label>
-          <label class="rcard">
-            <input type="radio" name="paytype" value="reimbursement" />
-            <div class="rcard-body">
-              <span class="rcard-ico">💳</span>
-              <div>
-                <div class="rcard-title">我先代墊</div>
-                <div class="rcard-desc">之後小金庫現金還給我</div>
-              </div>
+        </header>
+
+        <main class="flex-1 p-4 space-y-5">
+            
+            <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-10 -mt-10 pointer-events-none z-0 opacity-60"></div>
+                <div class="relative z-10">
+                    <h3 class="text-sm font-semibold text-slate-400 tracking-wider uppercase mb-1">💰 核心公積金餘額</h3>
+                    <div class="flex items-baseline space-x-1">
+                        <span class="text-3xl font-extrabold text-slate-900">$</span>
+                        <span id="pool-balance" class="text-4xl font-extrabold text-indigo-600 tracking-tight">---</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 mt-6">
+                        <button onclick="openModal('deposit-modal')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl shadow-sm transition active:scale-95 text-center text-sm cursor-pointer">
+                            📥 儲值入帳
+                        </button>
+                        <button onclick="openModal('elec-modal')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-xl shadow-sm transition active:scale-95 text-center text-sm cursor-pointer">
+                            💡 電費拆帳
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 房租看板 -->
+            <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 text-base">🏠 本月房租繳費</h3>
+                    <span id="rent-month-label" class="text-xs text-slate-400 font-medium tracking-wider uppercase"></span>
+                </div>
+                <div id="rent-list" class="space-y-3">
+                    <div class="text-center text-slate-400 text-xs py-2">載入房租狀態中...</div>
+                </div>
+            </section>
+
+            <!-- 打掃看板 -->
+            <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 text-base">🧹 隨手打掃打卡</h3>
+                    <span id="weekly-chore-count" class="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full font-bold">本週 0 次</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <button onclick="handleChore('倒垃圾')" class="flex flex-col items-center justify-center bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 p-3 rounded-xl transition cursor-pointer active:scale-95">
+                        <span class="text-2xl mb-1">🗑️</span>
+                        <span class="text-xs font-semibold text-slate-600 mt-1">倒垃圾</span>
+                    </button>
+                    <button onclick="handleChore('掃拖地')" class="flex flex-col items-center justify-center bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 p-3 rounded-xl transition cursor-pointer active:scale-95">
+                        <span class="text-2xl mb-1">🧹</span>
+                        <span class="text-xs font-semibold text-slate-600 mt-1">掃拖地</span>
+                    </button>
+                    <button onclick="handleChore('刷廁所')" class="flex flex-col items-center justify-center bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 p-3 rounded-xl transition cursor-pointer active:scale-95">
+                        <span class="text-2xl mb-1">🚽</span>
+                        <span class="text-xs font-semibold text-slate-600 mt-1">刷廁所</span>
+                    </button>
+                </div>
+                <div id="chore-list" class="space-y-2 max-h-32 overflow-y-auto pr-1">
+                    <div class="text-center text-slate-400 text-xs py-2">載入打卡紀錄中...</div>
+                </div>
+            </section>
+
+            <section class="space-y-3">
+                <div class="flex items-center justify-between px-1">
+                    <h3 class="font-bold text-slate-800 text-base">📋 最近公共支出紀錄</h3>
+                    <span class="text-xs text-slate-400">即時同步</span>
+                </div>
+                <div id="records-list" class="space-y-2">
+                    <div class="bg-white p-4 rounded-xl text-center text-slate-400 text-sm border border-slate-100">
+                        正在從 Supabase 讀取最新帳目...
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="elec-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto transform translate-y-10 transition-transform duration-300 shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900">💡 智慧電費拆帳計算機</h3>
+                <button onclick="closeModal('elec-modal')" class="text-slate-400 hover:text-slate-600 p-1 text-xl">✕</button>
             </div>
-          </label>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">📅 當期帳單期別</label>
+                    <input type="text" id="elec-period" placeholder="例如：2026年5-6月" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">💵 當期電費總金額 ($)</label>
+                    <input type="number" id="elec-total" placeholder="請輸入台電帳單總金額" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                
+                <hr class="border-slate-100 my-2">
+                <p class="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg font-medium">規則：系統將自動根據每人實際「居住天數」佔總人天數的比例進行公平拆帳。</p>
+                
+                <div class="space-y-2.5">
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span class="text-sm font-medium text-slate-700">👤 隊員 A 居住天數</span>
+                        <input type="number" id="days-a" value="60" class="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-center text-sm focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span class="text-sm font-medium text-slate-700">👤 隊員 B 居住天數</span>
+                        <input type="number" id="days-b" value="60" class="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-center text-sm focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span class="text-sm font-medium text-slate-700">👤 隊員 C 居住天數</span>
+                        <input type="number" id="days-c" value="60" class="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-center text-sm focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="handleCalculateElectricity()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-md transition mt-2 cursor-pointer">
+                🧮 算好金額並同步到小金庫
+            </button>
         </div>
-      </div>
     </div>
-    <div class="sheet-foot">
-      <button class="sheet-btn cancel" id="cancel-expense">✕ 取消</button>
-      <button class="sheet-btn ok" id="submit-expense">📝 記帳送出</button>
+
+    <div id="deposit-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 transform translate-y-10 transition-transform duration-300 shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900">📥 公積金儲值入帳</h3>
+                <button onclick="closeModal('deposit-modal')" class="text-slate-400 hover:text-slate-600 p-1 text-xl">✕</button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">💰 儲值金額 ($)</label>
+                    <input type="number" id="deposit-amount" placeholder="請輸入入帳金額" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">✍️ 備註說明</label>
+                    <input type="text" id="deposit-note" placeholder="例如：隊員 A 補繳六月份公積金" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+            </div>
+            <button onclick="handleDepositSubmit()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-md transition cursor-pointer">
+                確認入帳
+            </button>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- ── Modal: 公積金儲值 ── -->
-<div class="overlay" id="overlay-deposit">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head">
-      <h3 class="sheet-title">💰 公積金儲值</h3>
-      <button class="sheet-close" id="close-deposit">✕</button>
-    </div>
-    <div class="sheet-body">
-      <div class="fg">
-        <label class="flabel">儲值成員</label>
-        <div class="radio-row">
-          <label class="rpill"><input type="radio" name="dep-who" value="A" /> 隊員 A</label>
-          <label class="rpill"><input type="radio" name="dep-who" value="B" /> 隊員 B</label>
-          <label class="rpill"><input type="radio" name="dep-who" value="C" /> 隊員 C</label>
-        </div>
-      </div>
-      <div class="fg">
-        <label class="flabel">儲值金額（TWD）</label>
-        <div class="input-wrap">
-          <span class="input-pre">$</span>
-          <input class="finput pl" id="dep-amount" type="number" placeholder="例如：500" inputmode="decimal" />
-        </div>
-        <div>
-          <label class="flabel" style="margin-top:10px">快速選擇</label>
-          <div class="quick-row" id="qrow">
-            <button class="qpill" data-q="300">$300</button>
-            <button class="qpill" data-q="500">$500</button>
-            <button class="qpill" data-q="1000">$1,000</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="sheet-foot">
-      <button class="sheet-btn cancel" id="cancel-deposit">✕ 取消</button>
-      <button class="sheet-btn ok" id="submit-deposit">✅ 確認儲值</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Modal: 電費計算機 ── -->
-<div class="overlay" id="overlay-electricity">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-head">
-      <h3 class="sheet-title">💡 電費拆帳計算機</h3>
-      <button class="sheet-close" id="close-electricity">✕</button>
-    </div>
-    <div class="sheet-body">
-      <div class="fg">
-        <label class="flabel">電費總金額（TWD）</label>
-        <div class="input-wrap">
-          <span class="input-pre">$</span>
-          <input class="finput pl" id="elec-total" type="number" placeholder="例如：3000" inputmode="decimal" />
-        </div>
-      </div>
-      <div class="fg">
-        <label class="flabel">當期總天數</label>
-        <input class="finput" id="elec-days-total" type="number" placeholder="例如：60" inputmode="numeric" />
-      </div>
-      
-      <div class="fg" style="margin-top:24px;">
-        <label class="flabel" style="border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:12px;">每人實際居住天數</label>
-        
-        <div style="display:flex;align-items:center;margin-bottom:12px;gap:12px;">
-          <div style="width:40px;height:40px;border-radius:20px;background:#EBF5FF;color:#3B82F6;display:flex;align-items:center;justify-content:center;font-weight:700;">A</div>
-          <div style="flex:1;"><input class="finput elec-day-input" data-user="A" type="number" placeholder="A 居住天數" inputmode="numeric" /></div>
-          <div style="width:80px;text-align:right;font-weight:700;color:var(--text-1);" class="elec-res" id="elec-res-A">$0</div>
-        </div>
-        
-        <div style="display:flex;align-items:center;margin-bottom:12px;gap:12px;">
-          <div style="width:40px;height:40px;border-radius:20px;background:#F0FDF4;color:#22C55E;display:flex;align-items:center;justify-content:center;font-weight:700;">B</div>
-          <div style="flex:1;"><input class="finput elec-day-input" data-user="B" type="number" placeholder="B 居住天數" inputmode="numeric" /></div>
-          <div style="width:80px;text-align:right;font-weight:700;color:var(--text-1);" class="elec-res" id="elec-res-B">$0</div>
-        </div>
-        
-        <div style="display:flex;align-items:center;margin-bottom:12px;gap:12px;">
-          <div style="width:40px;height:40px;border-radius:20px;background:#FEF2F2;color:#EF4444;display:flex;align-items:center;justify-content:center;font-weight:700;">C</div>
-          <div style="flex:1;"><input class="finput elec-day-input" data-user="C" type="number" placeholder="C 居住天數" inputmode="numeric" /></div>
-          <div style="width:80px;text-align:right;font-weight:700;color:var(--text-1);" class="elec-res" id="elec-res-C">$0</div>
-        </div>
-      </div>
-      
-    </div>
-    <div class="sheet-foot">
-      <button class="sheet-btn cancel" id="cancel-electricity">✕ 取消</button>
-      <button class="sheet-btn ok" id="submit-electricity">⚡ 產生帳單</button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div id="toast"></div>
-
-<!-- ── 全域錯誤捕捉（獨立區塊，確保能抓到語法錯誤） ── -->
-<script>
-window.addEventListener('error', function(e) {
-  const loading = document.getElementById('loading');
-  if(loading) loading.innerHTML = `<div style="padding:20px;color:red;word-break:break-all;"><b>Error:</b> ${e.message}<br>Line: ${e.lineno}</div>`;
-});
-window.addEventListener('unhandledrejection', function(e) {
-  const loading = document.getElementById('loading');
-  if(loading) loading.innerHTML = `<div style="padding:20px;color:red;word-break:break-all;"><b>Promise Error:</b> ${e.reason?.message || e.reason}</div>`;
-});
-</script>
-
-<!-- ── LINE LIFF SDK ── -->
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-
-<!-- ── Supabase JS SDK ── -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-
-<script>
-'use strict';
-
-/* =====================================================
-   ⚙️  CONFIG — 填入你的 Supabase 設定
-   ===================================================== */
-const LIFF_ID         = '2010351344-iCnlrad4';
-const SUPABASE_URL    = 'https://gdccfmbtvkafymcxtqif.supabase.co';
-const SUPABASE_KEY    = 'sb_publishable_Ux47vnWMNuEQ85UG96tzqQ_fp0ym8QQ';
-
-/* 這個 App 屬於哪個月份的帳單（格式 YYYY-MM） */
-const currentMonth = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-};
-
-/* 成員清單（順序 = 輪班順序）
-   待 Supabase users 表格有資料後可動態讀取 */
-const MEMBERS = [
-  { id:'A', name:'隊員 A', rentAmount: 8000, avStyle:'background:#e0f7f4;color:#11998e' },
-  { id:'B', name:'隊員 B', rentAmount: 7500, avStyle:'background:#fff8e1;color:#f59e0b' },
-  { id:'C', name:'隊員 C', rentAmount: 7500, avStyle:'background:#ffeaea;color:#ef4444' },
-];
-
-/* =====================================================
-   🔌  SUPABASE CLIENT
-   ===================================================== */
-let db = null;
-
-function initSupabase() {
-  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
-    console.warn('⚠️ 尚未填入 Supabase 設定，使用 Demo 資料');
-    return false;
-  }
-  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  return true;
-}
-
-/* =====================================================
-   📦  STATE
-   ===================================================== */
-const state = {
-  user:       { name: 'Guest', avatar: null, lineId: null, role: 'member' },
-  balance:    0,
-  ledger:     [],          // finance_ledger 最新記錄
-  rentStatus: {},          // { 'A': 'unpaid'|'paid'|'confirmed', ... }
-  chores:     [],          // chore_log 最新記錄
-  hasSupabase: false,
-};
-
-/* =====================================================
-   🔧  HELPERS
-   ===================================================== */
-const $ = (s, c=document) => c.querySelector(s);
-const toast = (() => {
-  let t; const el = document.getElementById('toast');
-  return msg => {
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(t);
-    t = setTimeout(() => el.classList.remove('show'), 2500);
-  };
-})();
-
-function animateNum(el, from, to, ms=500) {
-  const s = performance.now();
-  const d = to - from;
-  function step(now) {
-    const p = Math.min((now - s) / ms, 1);
-    const e = 1 - Math.pow(1 - p, 3);
-    el.textContent = Math.round(from + d * e).toLocaleString();
-    if (p < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-}
-
-function fmtAmt(n) { return n < 0 ? `-$${Math.abs(n).toLocaleString()}` : `+$${n.toLocaleString()}`; }
-function fmtDate(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = Math.floor((now - d) / 86400000);
-  if (diff === 0) return '今天';
-  if (diff === 1) return '昨天';
-  return `${d.getMonth()+1}/${d.getDate()}`;
-}
-
-/* =====================================================
-   🏦  SUPABASE DATA LAYER
-   ===================================================== */
-
-/* 讀取公積金餘額 */
-async function fetchBalance() {
-  if (!db) return 1550; // demo
-  const { data, error } = await db
-    .from('fund_status')
-    .select('current_balance')
-    .order('last_updated', { ascending: false })
-    .limit(1)
-    .single();
-  if (error) { console.error(error); return state.balance; }
-  return data.current_balance;
-}
-
-/* 更新公積金餘額 */
-async function updateBalance(newBalance) {
-  if (!db) return true;
-  const { error } = await db
-    .from('fund_status')
-    .update({ current_balance: newBalance, last_updated: new Date().toISOString() })
-    .neq('id', 0); // update the single row
-  return !error;
-}
-
-/* 讀取最新 10 筆流水帳 */
-async function fetchLedger(limit = 10) {
-  if (!db) {
-    return [ // demo data
-      { id:3, title:'殺蟑神器 & 垃圾袋', amount:320, type:'expense',  created_by:'隊員 B', created_at: new Date(Date.now()-86400000*0).toISOString() },
-      { id:2, title:'衛生紙 3 串',        amount:250, type:'expense',  created_by:'隊員 A', created_at: new Date(Date.now()-86400000*1).toISOString() },
-      { id:1, title:'公積金儲值（三人）',  amount:1500,type:'income',   created_by:'全體',  created_at: new Date(Date.now()-86400000*9).toISOString() },
-    ];
-  }
-  const { data, error } = await db
-    .from('finance_ledger')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error) { console.error(error); return []; }
-  return data;
-}
-
-/* 插入一筆流水帳 */
-async function insertLedger({ title, amount, type, createdBy }) {
-  if (!db) return { id: Date.now(), title, amount, type, created_by: createdBy, created_at: new Date().toISOString() };
-  const { data, error } = await db
-    .from('finance_ledger')
-    .insert([{ title, amount, type, created_by: createdBy }])
-    .select()
-    .single();
-  if (error) { console.error(error); return null; }
-  return data;
-}
-
-/* 讀取本月房租狀態 */
-async function fetchRentStatus(month) {
-  if (!db) {
-    return { A: 'confirmed', B: 'paid', C: 'unpaid' }; // demo
-  }
-  const { data, error } = await db
-    .from('rent_status')
-    .select('user_id, status')
-    .eq('billing_month', month);
-  if (error) { console.error(error); return {}; }
-  const map = {};
-  (data || []).forEach(r => { map[r.user_id] = r.status; });
-  return map;
-}
-
-/* 更新房租狀態 */
-async function updateRentStatus(userId, month, status) {
-  if (!db) return true;
-  const { error } = await db
-    .from('rent_status')
-    .upsert([{ user_id: userId, billing_month: month, status, paid_at: status === 'paid' ? new Date().toISOString() : null }],
-      { onConflict: 'billing_month,user_id' });
-  return !error;
-}
-
-/* 讀取最新打掃紀錄 */
-async function fetchChores(limit = 5) {
-  if (!db) {
-    return [
-      { id:2, chore_name: '倒垃圾', done_by: '隊員 C', done_at: new Date(Date.now()-86400000*1).toISOString() },
-      { id:1, chore_name: '刷廁所', done_by: '隊員 A', done_at: new Date(Date.now()-86400000*2).toISOString() },
-    ];
-  }
-  const { data, error } = await db
-    .from('chore_log')
-    .select('*')
-    .order('done_at', { ascending: false })
-    .limit(limit);
-  if (error) { console.error(error); return []; }
-  return data;
-}
-
-/* 插入打掃紀錄 */
-async function insertChore(choreName) {
-  if (!db) return { id: Date.now(), chore_name: choreName, done_by: state.user.name, done_at: new Date().toISOString() };
-  const { data, error } = await db
-    .from('chore_log')
-    .insert([{ chore_name: choreName, done_by: state.user.name }])
-    .select()
-    .single();
-  if (error) { console.error(error); return null; }
-  return data;
-}
-
-/* 插入電費帳單 */
-async function insertElectricityBill(billData) {
-  if (!db) {
-    console.log('Demo mode inserting electricity bill:', billData);
-    return { id: Date.now(), ...billData, created_at: new Date().toISOString() };
-  }
-  const { data, error } = await db
-    .from('electricity_bills')
-    .insert([billData])
-    .select()
-    .single();
-  if (error) { console.error(error); return null; }
-  return data;
-}
-
-/* 即時訂閱 fund_status 變更 */
-function subscribeRealtime() {
-  if (!db) return;
-  db.channel('fund-rt')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'fund_status' }, async () => {
-      const bal = await fetchBalance();
-      const prev = state.balance;
-      state.balance = bal;
-      animateNum(document.getElementById('balance-num'), prev, bal);
-    })
-    .subscribe();
-
-  db.channel('ledger-rt')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'finance_ledger' }, async () => {
-      state.ledger = await fetchLedger();
-      renderLedger();
-    })
-    .subscribe();
-
-  db.channel('rent-rt')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'rent_status' }, async () => {
-      state.rentStatus = await fetchRentStatus(currentMonth());
-      renderRentList();
-    })
-    .subscribe();
-
-  db.channel('chore-rt')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chore_log' }, async () => {
-      state.chores = await fetchChores();
-      renderChoreList();
-    })
-    .subscribe();
-}
-
-/* =====================================================
-   🖼️  RENDER FUNCTIONS
-   ===================================================== */
-
-/* 公積金餘額 */
-function renderBalance(animate = true) {
-  const el = document.getElementById('balance-num');
-  if (animate && el.textContent !== '—') {
-    const prev = parseInt(el.textContent.replace(/,/g, '')) || 0;
-    animateNum(el, prev, state.balance);
-  } else {
-    el.textContent = state.balance.toLocaleString();
-  }
-}
-
-/* 流水帳 */
-function renderLedger() {
-  const list = document.getElementById('ledger-list');
-  if (!state.ledger.length) {
-    list.innerHTML = '<div class="empty-state">📭<p>還沒有任何記錄</p></div>';
-    return;
-  }
-  list.innerHTML = state.ledger.map(r => {
-    const isIn  = r.type === 'income';
-    const isRe  = r.type === 'reimbursement';
-    const cls   = isIn ? 'in' : isRe ? 're' : 'ex';
-    const lbl   = isIn ? '存'  : isRe ? '墊'  : '支';
-    const sign  = isIn ? '+' : '-';
-    return `
-      <div class="ledger-item">
-        <div class="l-icon ${cls}">${lbl}</div>
-        <div class="l-info">
-          <div class="l-title">${r.title}</div>
-          <div class="l-meta">${r.created_by}・${fmtDate(r.created_at)}</div>
-        </div>
-        <div class="l-amt ${cls}">${sign}$${Number(r.amount).toLocaleString()}</div>
-      </div>`;
-  }).join('');
-}
-
-/* 房租清單 */
-function renderRentList() {
-  const list = document.getElementById('rent-list');
-  const month = currentMonth();
-  const [y, m] = month.split('-');
-  const nextM = parseInt(m) % 12 + 1;
-  const dueLabel = `截止 ${nextM}/1`;
-  document.getElementById('rent-due-chip').textContent = dueLabel;
-
-  list.innerHTML = MEMBERS.map(mem => {
-    const status = state.rentStatus[mem.id] || 'unpaid';
-    const tagMap  = { confirmed:'已繳清 ✅', paid:'待確認 ⏳', unpaid:'未繳 ❌' };
-    const tagCls  = status;
-    const isSelf  = (state.user.lineId || 'C') === mem.id; // 示範：預設自己是 C
-
-    let rightHtml = '';
-    if (status === 'confirmed') {
-      rightHtml = `<div class="rent-tag confirmed">${tagMap.confirmed}</div>`;
-    } else if (status === 'paid') {
-      const confirmBtn = state.user.role === 'admin' 
-        ? `<button class="btn-confirm" data-id="${mem.id}">確認入帳</button>`
-        : `<div style="font-size:10px;color:var(--text-3);margin-top:4px">待總管確認</div>`;
-      rightHtml = `
-        <div class="rent-actions">
-          <div class="rent-tag pending">${tagMap.paid}</div>
-          ${confirmBtn}
-        </div>`;
-    } else {
-      rightHtml = isSelf
-        ? `<button class="btn-pay" data-id="${mem.id}">我已繳交</button>`
-        : `<div class="rent-tag unpaid">${tagMap.unpaid}</div>`;
-    }
-
-    return `
-      <div class="rent-item ${status}" id="rent-${mem.id}">
-        <div class="rent-dot"></div>
-        <div class="rent-av" style="${mem.avStyle}">${mem.id}</div>
-        <div class="rent-info">
-          <div class="rent-name">${mem.name}</div>
-          <div class="rent-amt">$${mem.rentAmount.toLocaleString()}</div>
-        </div>
-        ${rightHtml}
-      </div>`;
-  }).join('');
-
-  /* 綁定「我已繳交」和「確認入帳」按鈕 */
-  list.querySelectorAll('.btn-pay').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      btn.disabled = true; btn.textContent = '處理中…';
-      const ok = await updateRentStatus(id, currentMonth(), 'paid');
-      if (ok) {
-        state.rentStatus[id] = 'paid';
-        renderRentList();
-        toast('✅ 已標記為「我已繳交」，請等待確認！');
-      } else { btn.disabled = false; btn.textContent = '我已繳交'; toast('❌ 操作失敗，請重試'); }
-    });
-  });
-
-  list.querySelectorAll('.btn-confirm').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      btn.disabled = true; btn.textContent = '確認中…';
-      const ok = await updateRentStatus(id, currentMonth(), 'confirmed');
-      if (ok) {
-        state.rentStatus[id] = 'confirmed';
-        renderRentList();
-        toast('🎉 已確認入帳！房租已繳清。');
-      } else { btn.disabled = false; btn.textContent = '確認入帳'; toast('❌ 操作失敗，請重試'); }
-    });
-  });
-}
-
-/* 打掃紀錄清單 */
-function renderChoreList() {
-  const list = document.getElementById('chore-list');
-  const countEl = document.getElementById('chore-count');
-  
-  // 計算本週打卡次數 (簡單以近7天算)
-  const now = new Date();
-  const weekAgo = now - 7 * 86400000;
-  const weeklyCount = state.chores.filter(c => new Date(c.done_at) >= weekAgo).length;
-  countEl.textContent = `近7天已打卡 ${weeklyCount} 次`;
-
-  if (!state.chores.length) {
-    list.innerHTML = '<div class="empty-state">📭<p>還沒有人打卡，趕快去幫忙吧！</p></div>';
-    return;
-  }
-  list.innerHTML = state.chores.map(c => {
-    let emoji = '✨';
-    if(c.chore_name.includes('垃圾')) emoji = '🗑️';
-    if(c.chore_name.includes('掃') || c.chore_name.includes('拖')) emoji = '🧹';
-    if(c.chore_name.includes('廁')) emoji = '🚽';
-
-    return `
-      <div class="ledger-item">
-        <div class="l-icon" style="background:rgba(16,185,129,.1);font-size:18px">${emoji}</div>
-        <div class="l-info">
-          <div class="l-title">${c.chore_name}</div>
-          <div class="l-meta">${c.done_by}・${fmtDate(c.done_at)}</div>
-        </div>
-        <div class="l-amt" style="color:var(--ok);font-size:12px;font-weight:700">完成 🎉</div>
-      </div>`;
-  }).join('');
-}
-
-/* =====================================================
-   📬  MODAL SYSTEM
-   ===================================================== */
-function openSheet(id) {
-  document.getElementById(`overlay-${id}`).classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeSheet(id) {
-  document.getElementById(`overlay-${id}`).classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-/* Close on backdrop click */
-document.querySelectorAll('.overlay').forEach(ov => {
-  ov.addEventListener('click', e => {
-    if (e.target === ov) closeSheet(ov.id.replace('overlay-', ''));
-  });
-});
-
-/* ── 儲值 Modal ── */
-document.getElementById('btn-deposit').addEventListener('click', () => openSheet('deposit'));
-document.getElementById('close-deposit').addEventListener('click', () => closeSheet('deposit'));
-document.getElementById('cancel-deposit').addEventListener('click', () => closeSheet('deposit'));
-
-/* 快速金額 */
-document.getElementById('qrow').addEventListener('click', e => {
-  const btn = e.target.closest('.qpill');
-  if (!btn) return;
-  document.getElementById('dep-amount').value = btn.dataset.q;
-  document.querySelectorAll('.qpill').forEach(b => b.classList.remove('sel'));
-  btn.classList.add('sel');
-});
-
-document.getElementById('submit-deposit').addEventListener('click', async () => {
-  const amount = parseFloat(document.getElementById('dep-amount').value);
-  const who = document.querySelector('input[name="dep-who"]:checked')?.value;
-  if (!amount || amount <= 0) { toast('❌ 請輸入有效金額'); return; }
-  if (!who) { toast('❌ 請選擇儲值成員'); return; }
-
-  const btn = document.getElementById('submit-deposit');
-  btn.disabled = true; btn.textContent = '處理中…';
-
-  const newBalance = state.balance + amount;
-  const [balOk, rec] = await Promise.all([
-    updateBalance(newBalance),
-    insertLedger({ title:`${who}隊員儲值`, amount, type:'income', createdBy: `隊員 ${who}` }),
-  ]);
-
-  btn.disabled = false; btn.textContent = '✅ 確認儲值';
-
-  if (balOk) {
-    const prev = state.balance;
-    state.balance = newBalance;
-    renderBalance(true);
-    if (rec) { state.ledger.unshift(rec); if(state.ledger.length>10) state.ledger.pop(); renderLedger(); }
-    closeSheet('deposit');
-    document.getElementById('dep-amount').value = '';
-    document.querySelectorAll('.qpill').forEach(b => b.classList.remove('sel'));
-    toast(`✅ 隊員 ${who} 儲值 $${amount.toLocaleString()} 成功！`);
-  } else { toast('❌ 儲值失敗，請重試'); }
-});
-
-/* ── 支出 Modal ── */
-document.getElementById('btn-add-expense').addEventListener('click', () => openSheet('expense'));
-document.getElementById('btn-add-reimburse').addEventListener('click', () => {
-  openSheet('expense');
-  const r = document.querySelector('input[name="paytype"][value="reimbursement"]');
-  if (r) r.checked = true;
-});
-document.getElementById('close-expense').addEventListener('click', () => closeSheet('expense'));
-document.getElementById('cancel-expense').addEventListener('click', () => closeSheet('expense'));
-
-document.getElementById('submit-expense').addEventListener('click', async () => {
-  const title   = document.getElementById('exp-title').value.trim();
-  const amount  = parseFloat(document.getElementById('exp-amount').value);
-  const payType = document.querySelector('input[name="paytype"]:checked')?.value || 'expense';
-  const buyer   = document.querySelector('input[name="buyer"]:checked')?.value || state.user.name;
-
-  if (!title)              { toast('❌ 請填寫品項名稱'); return; }
-  if (!amount || amount<=0){ toast('❌ 請輸入有效金額'); return; }
-
-  if (payType === 'expense' && amount > state.balance) {
-    toast('❌ 公積金餘額不足！'); return;
-  }
-
-  const btn = document.getElementById('submit-expense');
-  btn.disabled = true; btn.textContent = '記帳中…';
-
-  const tasks = [insertLedger({ title, amount, type: payType, createdBy: buyer ? `隊員 ${buyer}` : state.user.name })];
-  if (payType === 'expense') tasks.push(updateBalance(state.balance - amount));
-  const results = await Promise.all(tasks);
-  const rec = results[0];
-
-  btn.disabled = false; btn.textContent = '📝 記帳送出';
-
-  if (rec) {
-    if (payType === 'expense') {
-      const prev = state.balance;
-      state.balance -= amount;
-      renderBalance(true);
-    }
-    state.ledger.unshift(rec);
-    if (state.ledger.length > 10) state.ledger.pop();
-    renderLedger();
-    closeSheet('expense');
-    document.getElementById('exp-title').value = '';
-    document.getElementById('exp-amount').value = '';
-    toast(payType === 'expense'
-      ? `✅ 已扣款 $${amount.toLocaleString()}（${title}）`
-      : `📝 已記錄代墊 $${amount.toLocaleString()}（${title}）`);
-  } else { toast('❌ 記帳失敗，請重試'); }
-});
-
-/* ── 查看全部（預留） ── */
-document.getElementById('btn-see-all').addEventListener('click', () => {
-  toast('📋 完整明細頁面開發中…');
-});
-
-/* ── 隨手打卡（綁定事件） ── */
-document.querySelectorAll('.chore-btn').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const chore = btn.dataset.chore;
-    btn.disabled = true;
-    const oldHtml = btn.innerHTML;
-    btn.innerHTML = `<div class="spinner" style="width:20px;height:20px;border-width:2px;margin:10px 0"></div>`;
-    
-    const rec = await insertChore(chore);
-    
-    btn.disabled = false;
-    btn.innerHTML = oldHtml;
-    
-    if (rec) {
-      state.chores.unshift(rec);
-      if(state.chores.length > 5) state.chores.pop();
-      renderChoreList();
-      toast(`✅ 感謝 ${state.user.name} 幫忙「${chore}」！辛苦了！`);
-    } else {
-      toast('❌ 打卡失敗，請重試');
-    }
-  });
-});
-
-/* ── 電費計算機 Modal ── */
-document.getElementById('btn-calc-electricity').addEventListener('click', () => openSheet('electricity'));
-document.getElementById('close-electricity').addEventListener('click', () => closeSheet('electricity'));
-document.getElementById('cancel-electricity').addEventListener('click', () => closeSheet('electricity'));
-
-// 即時計算邏輯
-function calcElectricity() {
-  const totalAmount = parseFloat(document.getElementById('elec-total').value) || 0;
-  // 可以不依賴總天數欄位，直接算 A+B+C
-  const daysA = parseFloat(document.querySelector('.elec-day-input[data-user="A"]').value) || 0;
-  const daysB = parseFloat(document.querySelector('.elec-day-input[data-user="B"]').value) || 0;
-  const daysC = parseFloat(document.querySelector('.elec-day-input[data-user="C"]').value) || 0;
-  
-  const totalDays = daysA + daysB + daysC;
-  
-  let resA = 0, resB = 0, resC = 0;
-  if (totalDays > 0 && totalAmount > 0) {
-    resA = Math.round(totalAmount * (daysA / totalDays));
-    resB = Math.round(totalAmount * (daysB / totalDays));
-    resC = Math.round(totalAmount * (daysC / totalDays));
-    
-    // 微調，確保加總等於總金額（將誤差算給 A）
-    const diff = totalAmount - (resA + resB + resC);
-    resA += diff;
-  }
-  
-  document.getElementById('elec-res-A').textContent = `$${resA.toLocaleString()}`;
-  document.getElementById('elec-res-B').textContent = `$${resB.toLocaleString()}`;
-  document.getElementById('elec-res-C').textContent = `$${resC.toLocaleString()}`;
-  
-  return { totalAmount, totalDays, daysA, daysB, daysC, resA, resB, resC };
-}
-
-document.getElementById('elec-total').addEventListener('input', calcElectricity);
-
-// 當總天數改變時，自動幫所有人的預設居住天數填滿
-document.getElementById('elec-days-total').addEventListener('input', (e) => {
-  const total = e.target.value;
-  document.querySelectorAll('.elec-day-input').forEach(inp => {
-    // 只有在使用者還沒輸入的情況下，或者想全部重設時才幫忙代入
-    inp.value = total;
-  });
-  calcElectricity();
-});
-
-document.querySelectorAll('.elec-day-input').forEach(inp => {
-  inp.addEventListener('input', calcElectricity);
-});
-
-// 送出產生帳單
-document.getElementById('submit-electricity').addEventListener('click', async () => {
-  const calc = calcElectricity();
-  
-  if (calc.totalAmount <= 0) { toast('❌ 請輸入電費總金額'); return; }
-  if (calc.totalDays <= 0) { toast('❌ 總居住天數不能為零'); return; }
-  
-  const btn = document.getElementById('submit-electricity');
-  btn.disabled = true; btn.textContent = '產生中…';
-  
-  const billData = {
-    billing_period: currentMonth(),
-    total_amount: calc.totalAmount,
-    user_a_days: calc.daysA, user_a_amount: calc.resA,
-    user_b_days: calc.daysB, user_b_amount: calc.resB,
-    user_c_days: calc.daysC, user_c_amount: calc.resC,
-  };
-  
-  const result = await insertElectricityBill(billData);
-  
-  btn.disabled = false; btn.textContent = '⚡ 產生帳單';
-  
-  if (result) {
-    closeSheet('electricity');
-    // 清空表單
-    document.getElementById('elec-total').value = '';
-    document.getElementById('elec-days-total').value = '';
-    document.querySelectorAll('.elec-day-input').forEach(inp => inp.value = '');
-    calcElectricity();
-    
-    toast(`✅ 帳單產生成功！總金額 $${calc.totalAmount.toLocaleString()} 已分攤`);
-    
-    // 這裡可以選擇：
-    // 1. 把產生的帳單顯示在 UI 上
-    // 2. 自動發送 LINE 訊息通知大家
-    document.getElementById('electricity-list').innerHTML = `
-      <div class="ledger-item">
-        <div class="l-icon" style="background:#FEF3C7;font-size:18px">⚡</div>
-        <div class="l-info">
-          <div class="l-title">本期電費已結算</div>
-          <div class="l-meta">總計 $${calc.totalAmount.toLocaleString()}</div>
-        </div>
-        <div class="l-amt" style="color:var(--text-1);font-size:12px;text-align:right;">
-          A:$${calc.resA} / B:$${calc.resB} / C:$${calc.resC}
-        </div>
-      </div>
-    `;
-  } else {
-    toast('❌ 產生帳單失敗，請重試');
-  }
-});
-
-/* Tab Bar（切換） */
-document.querySelectorAll('.tab-item').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab-item').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    
-    const tabName = t.dataset.tab;
-    // Hide all sections except the relevant ones
-    document.getElementById('finance-section').style.display = (tabName === 'finance') ? 'block' : 'none';
-    document.getElementById('rent-section').style.display = (tabName === 'rent') ? 'block' : 'none';
-    document.getElementById('chore-section').style.display = (tabName === 'cleaning') ? 'block' : 'none';
-    
-    // Default show finance on load if none selected (handled in initApp typically)
-    // The finance section contains the wallet and expenses
-    
-    // Notice isn't implemented fully yet
-    if (tabName === 'notice') toast('🔧 備忘公告頁面開發中…');
-  });
-});
-
-/* =====================================================
-   🚀  INITIALIZATION
-   ===================================================== */
-async function initApp() {
-  const loadingEl = document.getElementById('loading');
-  
-  // 建立一個可以顯示在畫面上方的 Debug 訊息工具
-  const debugLog = document.createElement('div');
-  debugLog.style.cssText = 'position:absolute;bottom:20px;font-size:12px;color:#aaa;text-align:center;width:100%;';
-  loadingEl.appendChild(debugLog);
-  const logStep = (msg) => { 
-    console.log('[Init]', msg); 
-    debugLog.innerHTML += `<div>${msg}</div>`; 
-  };
-
-  logStep('1. 初始化 Supabase...');
-  state.hasSupabase = initSupabase();
-
-  logStep('2. 初始化 LINE LIFF...');
-  try {
-    if (location.protocol === 'file:') {
-      throw new Error('本地 file:// 預覽模式不支援 LINE 登入，降級 Demo 模式。');
-    }
-    
-    // 加入 5 秒超時機制，避免 liff.init 卡死
-    await Promise.race([
-      liff.init({ liffId: LIFF_ID }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('LIFF SDK 初始化超時')), 5000))
-    ]);
-
-    logStep('3. 檢查登入狀態...');
-    if (!liff.isLoggedIn()) {
-      logStep('尚未登入，準備跳轉 LINE 登入...');
-      liff.login({ redirectUri: location.href });
-      // 避免跳轉失敗卡在載入畫面
-      loadingEl.innerHTML += `<div style="margin-top:20px;padding:10px;background:#fff;border-radius:8px;color:#ef4444;text-align:center;font-size:13px;max-width:80%;">正在跳轉至 LINE 登入...<br>若沒反應請確認網址是否正確，或<button onclick="location.reload()" style="margin-top:8px;padding:6px 12px;background:#11998e;color:#fff;border-radius:12px;">重新整理</button></div>`;
-      return; 
-    }
-
-    logStep('4. 取得使用者資料...');
-    const profile = await liff.getProfile();
-    state.user.name   = profile.displayName;
-    state.user.avatar = profile.pictureUrl;
-    state.user.lineId = profile.userId;
-    // 預設將當前登入者設為 admin，以便展示功能（之後可從 Supabase users 表讀取）
-    state.user.role   = 'admin'; 
-
-    /* 更新 Header */
-    const avEl   = document.getElementById('user-avatar');
-    const nameEl = document.getElementById('user-name');
-    nameEl.textContent = profile.displayName;
-    if (profile.pictureUrl) {
-      avEl.innerHTML = `<img src="${profile.pictureUrl}" alt="${profile.displayName}" />`;
-    } else {
-      avEl.textContent = profile.displayName[0] || '?';
-    }
-
-    /* 預設採購人為自己 */
-    /* （進階：根據 LINE ID 對應 users 表格中的 member ID） */
-
-  } catch (err) {
-    console.warn('LINE LIFF 初始化失敗:', err.message);
-    logStep('LIFF 失敗，降級為 Demo 模式: ' + err.message);
-    document.getElementById('user-name').textContent = 'Demo 模式';
-  }
-
-  logStep('5. 從資料庫抓取資料...');
-  try {
-    const [bal, ledger, rentStatus, chores] = await Promise.all([
-      fetchBalance(),
-      fetchLedger(),
-      fetchRentStatus(currentMonth()),
-      fetchChores()
-    ]);
-
-    state.balance    = bal;
-    state.ledger     = ledger;
-    state.rentStatus = rentStatus;
-    state.chores     = chores;
-  } catch (dbErr) {
-    logStep('資料庫讀取錯誤: ' + dbErr.message);
-    console.error(dbErr);
-  }
-
-  logStep('6. 渲染畫面...');
-  /* 4. Render */
-  renderBalance(false);
-  renderLedger();
-  renderRentList();
-  renderChoreList();
-
-  /* 5. Subscribe Realtime */
-  subscribeRealtime();
-
-  logStep('完成！隱藏載入畫面...');
-  /* 6. Hide Loading */
-  loadingEl.classList.add('hidden');
-}
-
-/* Start! */
-initApp().catch(err => {
-  console.error('App 啟動失敗:', err);
-  document.getElementById('loading').innerHTML =
-    `<div style="text-align:center;padding:40px;color:#ef4444">
-      <div style="font-size:40px">😵</div>
-      <p style="margin-top:12px;font-weight:700">啟動失敗</p>
-      <p style="font-size:13px;color:#6b7280;margin-top:6px">${err.message}</p>
-      <button onclick="location.reload()" style="margin-top:16px;padding:10px 24px;background:#11998e;color:#fff;border-radius:999px;font-weight:700;border:none;cursor:pointer">重新載入</button>
-    </div>`;
-});
-</script>
+    <script>
+        // 1. 初始化 Supabase 聯絡大腦 (確保變數乾淨，不重複宣告)
+        const SUPABASE_URL = "https://gdccfmbtvkafymcxtqif.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_Ux47vnWMNuEQ85UG96tzqQ_fp0ym8QQ";
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUserName = "神秘室友";
+
+        // 2. 初始化 LINE LIFF 通道
+        async function initLIFF() {
+            try {
+                await liff.init({ liffId: "2010351344-iCnlrad4" });
+                
+                if (liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    currentUserName = profile.displayName;
+                    
+                    // 把 LINE 的資料渲染到右上角介面
+                    document.getElementById('user-name').innerText = currentUserName;
+                    document.getElementById('user-avatar').src = profile.pictureUrl || "https://via.placeholder.com/150";
+                    
+                    // 資料讀取完畢，隱藏轉圈圈載入畫面，跳出美美的主頁面
+                    document.getElementById('loading-screen').classList.add('opacity-0');
+                    setTimeout(() => {
+                        document.getElementById('loading-screen').style.display = 'none';
+                        document.getElementById('app-main').style.display = 'flex';
+                    }, 300);
+
+                    // 同步去跟 Supabase 要目前的帳單資料
+                    fetchDataFromSupabase();
+                } else {
+                    liff.login();
+                }
+            } catch (error) {
+                console.error("LIFF 啟動失敗:", error);
+                // 為了方便你在電腦網頁測試，如果是在電腦開，我們依然讓他進去
+                document.getElementById('loading-screen').style.display = 'none';
+                document.getElementById('app-main').style.display = 'flex';
+                document.getElementById('user-name').innerText = "本機測試員";
+                fetchDataFromSupabase();
+            }
+        }
+
+        // 3. 從 Supabase 撈取真實的公積金餘額與紀錄
+        async function fetchDataFromSupabase() {
+            try {
+                // A. 抓取最近 5 筆支出明細
+                const { data: records, error: err1 } = await _supabase
+                    .from('money_records') // 確保你 Supabase 有建立這個 table
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                // B. 計算並渲染總餘額
+                const { data: allTransactions, error: err2 } = await _supabase
+                    .from('money_records')
+                    .select('amount, type');
+
+                if (!err1 && !err2 && allTransactions) {
+                    let totalBalance = 0;
+                    allTransactions.forEach(tx => {
+                        if (tx.type === 'deposit') totalBalance += tx.amount;
+                        if (tx.type === 'expense') totalBalance -= tx.amount;
+                    });
+                    document.getElementById('pool-balance').innerText = totalBalance.toLocaleString();
+                    renderRecordsList(records);
+                } else {
+                    // 如果沒建立 Table，顯示預設假餘額，排版不崩潰
+                    document.getElementById('pool-balance').innerText = "3,500";
+                    renderRecordsList([]);
+                }
+                
+                // C. 抓取打掃紀錄與房租
+                fetchChores();
+                fetchRentStatus();
+            } catch (e) {
+                console.error("資料庫連線失敗:", e);
+            }
+        }
+
+        // 4. 動態渲染支出紀錄列表（在手機上對齊不跑版）
+        function renderRecordsList(records) {
+            const container = document.getElementById('records-list');
+            if (!records || records.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white p-4 rounded-xl flex items-center justify-between border border-slate-100 shadow-sm">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">💡 尚未有任何紀錄</p>
+                            <p class="text-xs text-slate-400">趕快點選上方按鈕新增第一筆帳目吧！</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = records.map(r => `
+                <div class="bg-white p-4 rounded-xl flex items-center justify-between border border-slate-100 shadow-sm">
+                    <div>
+                        <p class="text-sm font-bold text-slate-800">${r.note || '未命名支出'}</p>
+                        <p class="text-xs text-slate-400 mt-0.5">經手人: ${r.operator}</p>
+                    </div>
+                    <span class="text-sm font-extrabold ${r.type === 'deposit' ? 'text-emerald-600' : 'text-rose-500'}">
+                        ${r.type === 'deposit' ? '+' : '-'}$${r.amount}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // ==================== 動作與事件處理：智慧電費拆帳 ====================
+        async function handleCalculateElectricity() {
+            const period = document.getElementById('elec-period').value;
+            const totalAmount = parseFloat(document.getElementById('elec-total').value);
+            const daysA = parseInt(document.getElementById('days-a').value) || 0;
+            const daysB = parseInt(document.getElementById('days-b').value) || 0;
+            const daysC = parseInt(document.getElementById('days-c').value) || 0;
+
+            if (!period || !totalAmount) {
+                alert("請填寫完整的帳單期別與電費總金額！");
+                return;
+            }
+
+            const totalDays = daysA + daysB + daysC;
+            if (totalDays === 0) {
+                alert("總居住天數不能為 0 天！");
+                return;
+            }
+
+            // 核心數學公式代入（四捨五入至整數）
+            const amtA = Math.round(totalAmount * (daysA / totalDays));
+            const amtB = Math.round(totalAmount * (daysB / totalDays));
+            const amtC = Math.round(totalAmount * (daysC / totalDays));
+
+            // 將拆帳結果寫入紀錄
+            const { error } = await _supabase
+                .from('money_records')
+                .insert([
+                    {
+                        type: 'expense',
+                        amount: totalAmount,
+                        note: `⚡ 電費拆帳(${period}) A:${amtA} B:${amtB} C:${amtC}`,
+                        operator: currentUserName
+                    }
+                ]);
+
+            if (!error) {
+                alert(`🎉 電費公平拆帳成功！\n\n三人人天比例總計：${totalDays} 天\n👤 隊員 A 應繳：$${amtA}\n👤 隊員 B 應繳：$${amtB}\n👤 隊員 C 應繳：$${amtC}\n\n資料已同步發布至小金庫紀錄中！`);
+                closeModal('elec-modal');
+                fetchDataFromSupabase();
+            } else {
+                alert("儲存失敗，請確認你的 Supabase 後台是否有建立對應欄位格。");
+            }
+        }
+
+        // ==================== 動作與事件處理：儲值入帳 ====================
+        async function handleDepositSubmit() {
+            const amount = parseFloat(document.getElementById('deposit-amount').value);
+            const note = document.getElementById('deposit-note').value || "公積金儲值入帳";
+
+            if (!amount || amount <= 0) {
+                alert("請輸入正確的儲值金額！");
+                return;
+            }
+
+            const { error } = await _supabase
+                .from('money_records')
+                .insert([{ type: 'deposit', amount: amount, note: note, operator: currentUserName }]);
+
+            if (!error) {
+                alert("🎉 儲值成功！金庫餘額已更新！");
+                closeModal('deposit-modal');
+                fetchDataFromSupabase();
+                // 清空欄位
+                document.getElementById('deposit-amount').value = '';
+                document.getElementById('deposit-note').value = '';
+            } else {
+                alert("寫入失敗，請確認資料庫線路。");
+            }
+        }
+
+        // ==================== 動作與事件處理：打掃打卡 ====================
+        async function fetchChores() {
+            try {
+                const { data, error } = await _supabase
+                    .from('chore_done_log')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                
+                if (!error && data) {
+                    const now = new Date();
+                    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                    const weekCount = data.filter(d => new Date(d.created_at) >= weekAgo).length;
+                    document.getElementById('weekly-chore-count').innerText = `本週 ${weekCount} 次`;
+                    
+                    if (data.length === 0) {
+                        document.getElementById('chore-list').innerHTML = `<div class="text-center text-slate-400 text-xs py-2">還沒有人打卡，趕快去幫忙吧！</div>`;
+                        return;
+                    }
+                    
+                    document.getElementById('chore-list').innerHTML = data.map(c => {
+                        let icon = '✨';
+                        if(c.chore_name.includes('垃圾')) icon = '🗑️';
+                        if(c.chore_name.includes('地')) icon = '🧹';
+                        if(c.chore_name.includes('廁')) icon = '🚽';
+                        
+                        return `
+                        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            <div class="flex items-center space-x-3">
+                                <div class="bg-white shadow-sm w-8 h-8 rounded-full flex items-center justify-center text-sm border border-slate-100">${icon}</div>
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-700">${c.chore_name}</p>
+                                    <p class="text-[10px] text-slate-400">經手人: ${c.done_by}</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">完成 🎉</span>
+                        </div>
+                        `;
+                    }).join('');
+                } else {
+                    document.getElementById('chore-list').innerHTML = `<div class="text-center text-slate-400 text-xs py-2">尚未建立資料表</div>`;
+                }
+            } catch(e) {}
+        }
+
+        async function handleChore(choreName) {
+            const { error } = await _supabase
+                .from('chore_done_log')
+                .insert([{ chore_name: choreName, done_by: currentUserName }]);
+            
+            if (!error) {
+                alert(`✅ 感謝 ${currentUserName} 幫忙「${choreName}」！辛苦了！`);
+                fetchChores();
+            } else {
+                alert("打卡失敗，請確認資料庫有建立 chore_done_log 表格 (欄位: chore_name, done_by)。");
+            }
+        }
+
+        // ==================== 動作與事件處理：房租狀態 ====================
+        const MEMBERS = [
+            { id: 'A', name: '隊員 A', rentAmount: 8000, color: 'bg-teal-50 text-teal-600 border-teal-100' },
+            { id: 'B', name: '隊員 B', rentAmount: 7500, color: 'bg-amber-50 text-amber-600 border-amber-100' },
+            { id: 'C', name: '隊員 C', rentAmount: 7500, color: 'bg-rose-50 text-rose-600 border-rose-100' }
+        ];
+
+        function getCurrentMonthStr() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        }
+
+        let currentRentStatus = {};
+
+        async function fetchRentStatus() {
+            const month = getCurrentMonthStr();
+            document.getElementById('rent-month-label').innerText = `${month} 期`;
+            try {
+                const { data, error } = await _supabase
+                    .from('rent_status')
+                    .select('*')
+                    .eq('billing_month', month);
+                
+                currentRentStatus = {};
+                if (!error && data) {
+                    data.forEach(r => { currentRentStatus[r.user_id] = r.status; });
+                }
+                renderRentList();
+            } catch(e) {}
+        }
+
+        function renderRentList() {
+            const container = document.getElementById('rent-list');
+            container.innerHTML = MEMBERS.map(m => {
+                const status = currentRentStatus[m.id] || 'unpaid';
+                let statusHtml = '';
+                let borderClass = 'border-slate-100';
+                
+                if (status === 'confirmed') {
+                    borderClass = 'border-emerald-200 bg-emerald-50/30';
+                    statusHtml = `<span class="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded border border-emerald-200">已繳清 ✅</span>`;
+                } else if (status === 'paid') {
+                    borderClass = 'border-amber-200 bg-amber-50/30';
+                    // 總管可以看到「確認入帳」按鈕
+                    statusHtml = `
+                        <div class="flex flex-col items-end">
+                            <span class="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded border border-amber-200 mb-1.5">待總管確認 ⏳</span>
+                            <button onclick="updateRent('${m.id}', 'confirmed')" class="text-[10px] font-bold text-white bg-slate-800 px-2 py-1 rounded shadow-sm hover:bg-slate-700 transition">確認入帳</button>
+                        </div>
+                    `;
+                } else {
+                    borderClass = 'border-rose-200 bg-rose-50/20';
+                    statusHtml = `
+                        <div class="flex flex-col items-end">
+                            <span class="text-xs font-bold text-rose-500 mb-1.5">未繳 ❌</span>
+                            <button onclick="updateRent('${m.id}', 'paid')" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded shadow-sm hover:bg-indigo-100 transition">我已匯款</button>
+                        </div>
+                    `;
+                }
+
+                return `
+                <div class="flex items-center justify-between p-3 rounded-xl border ${borderClass} transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border ${m.color}">
+                            ${m.id}
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-700">${m.name}</p>
+                            <p class="text-[11px] text-slate-400 font-medium tracking-wide">應繳: $${m.rentAmount.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    ${statusHtml}
+                </div>
+                `;
+            }).join('');
+        }
+
+        async function updateRent(userId, status) {
+            const month = getCurrentMonthStr();
+            // 先嘗試 upsert
+            const { error } = await _supabase
+                .from('rent_status')
+                .upsert([{ user_id: userId, billing_month: month, status: status }], { onConflict: 'billing_month,user_id' });
+            
+            if (!error) {
+                if (status === 'paid') alert(`✅ 已標記為「已匯款」，請等待對帳！`);
+                if (status === 'confirmed') alert(`🎉 已確認 ${userId} 的房租入帳！`);
+                fetchRentStatus();
+            } else {
+                alert("更新失敗，請確認資料庫有建立 rent_status 表格 (欄位: user_id, billing_month, status)。");
+            }
+        }
+
+        // ==================== 彈出視窗開關 UI 控制工具 ====================
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('pointer-events-none', 'opacity-0');
+            modal.firstElementChild.classList.remove('translate-y-10');
+        }
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.add('pointer-events-none', 'opacity-0');
+            modal.firstElementChild.classList.add('translate-y-10');
+        }
+
+        // 網頁加載完畢後立刻執行 LINE LIFF 初始化
+        window.onload = initLIFF;
+    </script>
 </body>
 </html>

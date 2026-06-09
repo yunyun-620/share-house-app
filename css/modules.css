@@ -1,0 +1,530 @@
+/* ============================================================
+   modules.css — 各模塊專屬樣式
+   合租管家 · 敗家組
+   ============================================================ */
+
+/* ========================
+   MODULE 1 — 無額外樣式（已在 components.css）
+   ======================== */
+
+/* ========================
+   MODULE 2 — 打掃排班
+   ======================== */
+
+/* Duty Hero Card */
+.duty-hero-card {
+  background: var(--grad-duty);
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl);
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(99,102,241,0.35);
+}
+
+.duty-card-deco {
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 130px;
+  height: 130px;
+  border-radius: var(--radius-full);
+  background: rgba(255,255,255,0.1);
+  pointer-events: none;
+}
+
+.duty-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.duty-week-label {
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.92;
+  letter-spacing: 0.2px;
+}
+
+.duty-countdown {
+  font-size: 12px;
+  opacity: 0.75;
+  background: rgba(255,255,255,0.15);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+}
+.duty-countdown strong { font-weight: 900; font-family: var(--font-num); }
+
+.duty-member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.duty-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: rgba(255,255,255,0.22);
+  border: 3px solid rgba(255,255,255,0.4);
+  font-size: 24px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.duty-info { flex: 1; }
+
+.duty-name {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+  margin-bottom: 2px;
+}
+
+.duty-desc {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-bottom: 3px;
+}
+
+.duty-rotation {
+  font-size: 11px;
+  opacity: 0.6;
+  background: rgba(255,255,255,0.12);
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.duty-next-row {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 12px;
+  opacity: 0.7;
+}
+.duty-next-row span {
+  background: rgba(255,255,255,0.15);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+/* Progress Chip */
+.progress-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--bg-muted);
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+}
+
+.mini-progress {
+  width: 40px;
+  height: 5px;
+  background: #e5e7eb;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+.mini-progress::after {
+  content: '';
+  position: absolute;
+  inset-y: 0;
+  left: 0;
+  width: var(--pct);
+  background: linear-gradient(90deg, #11998e, #38ef7d);
+  border-radius: var(--radius-full);
+  transition: width 0.4s ease;
+}
+
+/* Chore Sub Label */
+.chore-sub-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+/* Chore List */
+.chore-list { display: flex; flex-direction: column; gap: var(--space-xs); }
+
+.chore-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--bg-muted);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.chore-item:hover { background: #edf2f7; }
+
+.chore-item.done {
+  background: rgba(16,185,129,0.06);
+  border-color: rgba(16,185,129,0.18);
+  opacity: 0.75;
+}
+
+.chore-checkbox { display: none; }
+
+.chore-check-custom {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid #d1d5db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  background: #fff;
+}
+
+.chore-checkbox:checked ~ .chore-check-custom {
+  background: linear-gradient(135deg, #11998e, #38ef7d);
+  border-color: transparent;
+}
+
+.chore-checkbox:checked ~ .chore-check-custom::after {
+  content: '';
+  width: 6px;
+  height: 10px;
+  border: 2.5px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) translate(-1px, -1px);
+  display: block;
+}
+
+.chore-item-info { flex: 1; }
+
+.chore-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: text-decoration 0.1s;
+}
+.chore-item.done .chore-item-title { text-decoration: line-through; color: var(--text-muted); }
+
+.chore-item-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.chore-done-who {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-confirmed);
+  background: rgba(16,185,129,0.1);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+/* Maintenance List */
+.maintenance-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+.maintenance-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--bg-muted);
+  border: 1.5px solid transparent;
+  transition: all 0.2s;
+}
+
+.maintenance-item.overdue {
+  border-color: rgba(245,158,11,0.3);
+  background: rgba(245,158,11,0.05);
+}
+
+.maintenance-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.maintenance-info { flex: 1; }
+
+.maintenance-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.maintenance-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.maintenance-meta.overdue .overdue-text { color: var(--color-pending); font-weight: 700; }
+
+.maintenance-done-btn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #11998e;
+  background: rgba(17,153,142,0.1);
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  transition: all 0.15s;
+  font-family: var(--font-base);
+  white-space: nowrap;
+}
+.maintenance-done-btn:hover { background: rgba(17,153,142,0.18); }
+
+/* ========================
+   MODULE 3 — 生活備忘
+   ======================== */
+
+/* Bulletin Card */
+.bulletin-card { }
+
+.bulletin-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.bulletin-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px var(--space-md);
+  background: var(--bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.bulletin-icon { font-size: 22px; width: 32px; text-align: center; flex-shrink: 0; }
+
+.bulletin-key {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.bulletin-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-num);
+  margin-top: 1px;
+}
+
+/* Fridge Items */
+.fridge-list { display: flex; flex-direction: column; gap: var(--space-xs); }
+
+.fridge-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px var(--space-md);
+  background: var(--bg-muted);
+  border-radius: var(--radius-md);
+  border: 1.5px solid transparent;
+  transition: all 0.2s;
+}
+
+.fridge-item.expiring-soon { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.05); }
+.fridge-item.expired       { border-color: rgba(239,68,68,0.3);  background: rgba(239,68,68,0.05); }
+
+.fridge-owner-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.fridge-info { flex: 1; }
+
+.fridge-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fridge-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.fridge-expire { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+
+.expire-label {
+  font-size: 11px;
+  font-weight: 700;
+}
+.fridge-expire.expiring-soon .expire-label { color: var(--color-pending); }
+.fridge-expire.expired       .expire-label { color: var(--color-unpaid); }
+
+.expire-date {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-num);
+  color: var(--text-muted);
+}
+
+.blink {
+  animation: blink-anim 1.2s step-end infinite;
+}
+@keyframes blink-anim {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* Visitor List */
+.visitor-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+.visitor-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px var(--space-md);
+  background: var(--bg-muted);
+  border-radius: var(--radius-md);
+  border-left: 3px solid transparent;
+}
+
+.visitor-item.gathering { border-left-color: #6366f1; background: rgba(99,102,241,0.04); }
+.visitor-item.overnight { border-left-color: #f59e0b; background: rgba(245,158,11,0.04); }
+
+.visitor-date-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  flex-shrink: 0;
+}
+
+.visitor-day {
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text-primary);
+  font-family: var(--font-num);
+}
+
+.visitor-mon {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.visitor-info { flex: 1; }
+
+.visitor-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.visitor-type-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+.visitor-type-tag.gathering { background: rgba(99,102,241,0.12); color: #6366f1; }
+.visitor-type-tag.overnight { background: rgba(245,158,11,0.12); color: #f59e0b; }
+
+/* ========================
+   MODULE 4 — 房租歷史牆
+   ======================== */
+.rent-history-list { display: flex; flex-direction: column; gap: var(--space-xl); }
+
+.rent-history-month { }
+
+.rent-history-month-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.rent-history-month-label {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.rent-history-month-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(245,158,11,0.12);
+  color: var(--color-pending);
+}
+
+.rent-history-month-status.done {
+  background: rgba(16,185,129,0.12);
+  color: var(--color-confirmed);
+}
+
+.rent-history-rows { display: flex; flex-direction: column; gap: var(--space-xs); }
+
+.rent-history-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px var(--space-md);
+  background: var(--bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.rent-history-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rent-history-amount {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-num);
+  color: var(--text-secondary);
+}
+
+.rent-history-status {
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 80px;
+  text-align: right;
+}
+.rent-history-status.confirmed { color: var(--color-confirmed); }
+.rent-history-status.pending   { color: var(--color-pending); }
+.rent-history-status.unpaid    { color: var(--color-unpaid); }

@@ -81,7 +81,7 @@
       <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#00A676] to-[#38ef7d] flex items-center justify-center text-white text-lg">🏠</div>
       <h1 class="text-lg font-extrabold text-gray-900 tracking-tight">敗家組·合租管家</h1>
     </div>
-    <div class="flex items-center bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100 cursor-pointer active:scale-95 transition-transform">
+    <div onclick="handleProfileClick()" class="flex items-center bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100 cursor-pointer active:scale-95 transition-transform">
       <img id="user-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" alt="Avatar" class="w-6 h-6 rounded-full object-cover mr-2 bg-gray-100">
       <span id="user-name" class="text-xs font-extrabold text-gray-800 pr-1 max-w-[80px] truncate">讀取中…</span>
     </div>
@@ -169,9 +169,13 @@
           </h2>
           <span id="next-month-badge" class="text-[11px] font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full"></span>
         </div>
-        <div id="rent-list-fixed" class="space-y-2.5">
+        <div id="rent-list-fixed" class="space-y-2.5 mb-4">
           <!-- 固定房租室友列表 -->
           <div class="text-center text-gray-400 text-xs py-4">載入狀態中...</div>
+        </div>
+        <div class="pt-3 border-t border-gray-100 flex items-center justify-between">
+          <span class="text-xs font-bold text-gray-400">總計</span>
+          <span id="rent-total-fixed" class="text-base font-black text-gray-800 tracking-tight">$0</span>
         </div>
       </div>
 
@@ -325,6 +329,16 @@
             <div class="col-span-2 text-center text-gray-400 text-xs py-4">目前沒有工作公事備忘～</div>
           </div>
         </div>
+      </div>
+
+      <!-- 🛡️ 權限管理 (管理員專屬) -->
+      <div id="admin-panel" class="bg-white rounded-[2rem] p-6 shadow-sm border border-[#00A676]/30 hidden mb-5">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-[15px] font-extrabold text-gray-800 flex items-center gap-2">🛡️ 權限管理</h2>
+            <div class="sheet-panel bg-white w-full rounded-t-[2rem] p-6 pb-10 translate-y-full transition-transform duration-300 shadow-2xl relative max-h-[90vh] overflow-y-auto"></div>
+        </div>
+        <div id="admin-users-list" class="space-y-2"></div>
       </div>
 
       <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
@@ -532,6 +546,49 @@
 
 <!-- ── Toast 通知 ── -->
 <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-5 py-3 rounded-full font-bold text-sm shadow-xl opacity-0 pointer-events-none transition-all duration-300 z-[200] max-w-[calc(100vw-48px)] truncate translate-y-2">
+</div>
+
+<!-- ✏️ 編輯房租 Sheet -->
+<div id="sheet-edit-rent" class="sheet-overlay fixed inset-0 bg-black/50 z-50 flex items-end opacity-0 pointer-events-none backdrop-blur-sm">
+  <div class="sheet-panel bg-white w-full rounded-t-[2rem] p-6 pb-10 translate-y-full transition-transform duration-300 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-black text-gray-800 tracking-tight">✏️ 修改約定房租</h2>
+      <button onclick="closeSheet('edit-rent')" class="text-gray-400 hover:bg-gray-100 p-2 rounded-full transition-colors">
+        ✕
+      </button>
+    </div>
+    <div class="space-y-5">
+      <input type="hidden" id="edit-rent-userid">
+      <div>
+        <label class="block text-xs font-bold text-gray-500 mb-2">約定房租金額</label>
+        <div class="relative">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+          <input type="number" id="edit-rent-amount" placeholder="輸入修改金額" class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-[#00A676]/20 focus:border-[#00A676] block p-3.5 pl-8 font-bold transition-all outline-none">
+        </div>
+      </div>
+      <button onclick="submitEditRent()" class="w-full text-white bg-gradient-to-r from-[#00A676] to-[#008f65] hover:shadow-lg hover:shadow-[#00A676]/30 font-bold rounded-xl text-sm px-5 py-4 transition-all transform active:scale-[0.98]">
+        確認修改
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 🛡️ 權限管理 Sheet -->
+<div id="sheet-admin" class="sheet-overlay fixed inset-0 bg-black/50 z-50 flex items-end opacity-0 pointer-events-none backdrop-blur-sm">
+  <div class="sheet-panel bg-white w-full rounded-t-[2rem] p-6 pb-10 translate-y-full transition-transform duration-300 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-xl font-black text-gray-800 tracking-tight flex items-center gap-2">🛡️ 權限管理</h2>
+        <p class="text-[10px] text-gray-400 mt-0.5">設定成員權限身份</p>
+      </div>
+      <button onclick="closeSheet('admin')" class="text-gray-400 hover:bg-gray-100 p-2 rounded-full transition-colors">
+        ✕
+      </button>
+    </div>
+    <div id="sheet-admin-users-list" class="space-y-2"></div>
+  </div>
 </div>
 
 
@@ -840,6 +897,7 @@ async function fetchFridgeItems() {
 // ─── WRITE OPERATIONS ────────────────────────
 
 async function handleDeposit() {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const amount = parseFloat(document.getElementById('deposit-amount').value);
   const note = document.getElementById('deposit-note').value || '公積金儲值';
   if (!amount || amount <= 0) { showToast('❌ 請輸入有效金額'); return; }
@@ -860,6 +918,7 @@ async function handleDeposit() {
 }
 
 async function handleExpense() {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const title = document.getElementById('expense-title').value.trim();
   const amount = parseFloat(document.getElementById('expense-amount').value);
   const category = document.getElementById('expense-category').value;
@@ -890,6 +949,7 @@ async function handleExpense() {
 }
 
 async function handleElectricity() {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const checkedBoxes = document.querySelectorAll('input[name="elec-months"]:checked');
   const selectedMonths = Array.from(checkedBoxes).map(cb => cb.value);
   const total = parseFloat(document.getElementById('elec-total').value);
@@ -983,6 +1043,7 @@ async function handleElectricity() {
 }
 
 async function handleChore(choreName) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const btn = event.currentTarget;
   spawnConfetti(btn);
 
@@ -1065,6 +1126,7 @@ function openWishModal() {
 }
 
 async function handleAddShoppingItem(name, category, subType) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   if (db) {
     const { error } = await db.from('fridge_items').insert([{
       item_name: name,
@@ -1084,6 +1146,7 @@ async function handleAddShoppingItem(name, category, subType) {
 }
 
 async function voteApproveItem(id) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const item = state.fridgeItems.find(i => i.id === id);
   if (!item) return;
   const myId = state.user.id || state.user.name;
@@ -1099,6 +1162,7 @@ async function voteApproveItem(id) {
 }
 
 async function claimShoppingItem(id) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   if (db) {
     await db.from('fridge_items').update({ status: 'buying' }).eq('id', id);
   } else {
@@ -1110,6 +1174,7 @@ async function claimShoppingItem(id) {
 }
 
 function openShoppingCheckout(id, name, qty, subType) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   Swal.fire({
     title: subType === '私人' ? '🔒 私人代購結帳' : '👌 公共物資報帳',
     html: `
@@ -1168,6 +1233,7 @@ function openShoppingCheckout(id, name, qty, subType) {
 }
 
 async function handleDeleteFridgeItem(id) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   if (db) { await db.from('fridge_items').delete().eq('id', id); }
   state.fridgeItems = state.fridgeItems.filter(f => f.id !== id);
   renderFridgeList();
@@ -1187,6 +1253,7 @@ async function updateRent(userId, newStatus) {
 }
 
 function openEditRent(userId) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const mem = state.members.find(m => m.id === userId) || MEMBERS_CONFIG.find(m => m.id === userId);
   const totalExpected = state.rentStatus[userId]?.total_expected || mem?.rent_amount || mem?.rentAmount || 8000;
   document.getElementById('edit-rent-userid').value = userId;
@@ -1260,6 +1327,7 @@ async function submitPayRent() {
 }
 
 async function deleteRecord(id, operatorId) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   if (operatorId !== state.user.id && operatorId !== state.user.name) {
     showToast('❌ 只有記帳本人才能刪除此筆帳目');
     return;
@@ -1283,6 +1351,7 @@ async function refreshLedger() {
 
 // ─── CHORES & DAYS LOGIC ─────────────────────
 async function changeDays(userId, delta) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const member = state.members.find(m => m.id === userId);
   if (!member) return;
   let newDays = (member.present_days ?? 60) + delta;
@@ -1304,6 +1373,7 @@ async function changeDays(userId, delta) {
 }
 
 async function toggleDutyTask(taskKey) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   if (!state.choresSchedule) return;
   const checkbox = document.getElementById(taskKey);
   const isChecked = checkbox.checked;
@@ -1330,6 +1400,7 @@ async function toggleDutyTask(taskKey) {
 }
 
 async function nextDutyOfficer() {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   if (!state.choresSchedule?.id || !state.members.length) return;
   const sorted = [...state.members].sort((a,b)=>(a.duty_order)-(b.duty_order));
   const currentIndex = sorted.findIndex(m => m.id === state.choresSchedule.current_user_id);
@@ -1489,17 +1560,20 @@ function renderRentList() {
   }
 
   const month = getCurrentMonth();
-  const isAdmin = state.members[0]?.id === state.user.id || state.user.id === 'local_tester_001';
+  const isAdmin = state.user.role === 'admin' || state.user.id === '\u7BA1\u7406\u54E1';
 
   const fixedList = document.getElementById('rent-list-fixed');
   const utilityList = document.getElementById('rent-list-utility');
   if (!fixedList || !utilityList) return;
 
   // 1. Render Fixed Rent List
+  let totalFixedRent = 0;
   fixedList.innerHTML = MEMBERS_CONFIG.map((mem, idx) => {
-    const rentData = state.rentStatus[mem.id] || {};
-    const memberData = state.members.find(u => u.id === mem.id) || state.members[idx];
+    const memberData = state.members.find(u => u.id === mem.id) || state.members[idx] || mem;
+    const realId = memberData.id || mem.id;
+    const rentData = state.rentStatus[realId] || {};
     const rentExpected = rentData.total_expected || memberData?.rent_amount || mem.rentAmount || 8000;
+    totalFixedRent += rentExpected;
     const rentStatus = rentData.status || 'unpaid';
 
     const displayName = memberData?.display_name || mem.name;
@@ -1509,7 +1583,7 @@ function renderRentList() {
       ? `<img src="${avatarUrl}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0">`
       : `<div class="w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-xs flex-shrink-0 bg-gray-50 text-gray-500">${mem.id}</div>`;
 
-    const editIconHtml = isAdmin ? `<button onclick="openEditRent('${mem.id}')" class="ml-1 text-gray-300 hover:text-[#00A676] transition cursor-pointer active:scale-90 inline-block">✏️</button>` : '';
+    const editIconHtml = isAdmin ? `<button onclick="openEditRent('${realId}')" class="ml-1 text-gray-300 hover:text-[#00A676] transition cursor-pointer active:scale-90 inline-block">✏️</button>` : '';
 
     return `
       <div class="flex items-center justify-between p-3 rounded-2xl border ${rentStatus === 'confirmed' ? 'border-[#00A676]/20 bg-[#00A676]/[0.02]' : 'border-red-100 bg-red-50/20'} transition-colors">
@@ -1523,16 +1597,20 @@ function renderRentList() {
         <div>
           ${rentStatus === 'confirmed' 
             ? `<span class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-2.5 py-1.5 rounded-full flex items-center gap-0.5">已結清 ✅</span>` 
-            : `<button onclick="payFixedRent('${mem.id}', ${rentExpected})" class="text-[11px] font-black text-white bg-[#00A676] hover:bg-[#009268] px-3 py-1.5 rounded-full shadow-sm shadow-[#00A676]/15 active:scale-95 transition-all cursor-pointer flex items-center gap-1">🟢 繳房租</button>`
+            : `<button onclick="payFixedRent('${realId}', ${rentExpected})" class="text-[11px] font-black text-white bg-[#00A676] hover:bg-[#009268] px-3 py-1.5 rounded-full shadow-sm shadow-[#00A676]/15 active:scale-95 transition-all cursor-pointer flex items-center gap-1">🟢 繳房租</button>`
           }
         </div>
       </div>`;
   }).join('');
+  
+  const totalEl = document.getElementById('rent-total-fixed');
+  if (totalEl) totalEl.innerText = '$' + totalFixedRent.toLocaleString();
 
   // 2. Render Current Utility List
   utilityList.innerHTML = MEMBERS_CONFIG.map((mem, idx) => {
-    const rentData = state.rentStatus[mem.id] || {};
-    const memberData = state.members.find(u => u.id === mem.id) || state.members[idx];
+    const memberData = state.members.find(u => u.id === mem.id) || state.members[idx] || mem;
+    const realId = memberData.id || mem.id;
+    const rentData = state.rentStatus[realId] || {};
     const elecAmount = rentData.elec_amount || 0;
     const elecStatus = rentData.elec_status || 'unpaid';
 
@@ -1741,7 +1819,11 @@ function subscribeRealtime() {
   }).subscribe();
 
   db.channel('users-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
-    state.members = await fetchMembers();
+    state.allUsers = await fetchMembers();
+    state.members = state.allUsers.filter(u => u.role !== 'guest' && u.id !== '\u7BA1\u7406\u54E1');
+    for (let i = 0; i < 3; i++) {
+      if (!state.members[i]) state.members[i] = { id: MEMBERS_CONFIG[i].id, display_name: MEMBERS_CONFIG[i].name, role: 'member', present_days: 60, away_days: 0 };
+    }
     if (typeof syncMembersAwayDays === 'function') syncMembersAwayDays();
     renderDaysProgress();
     renderMemberAvatars();
@@ -1801,8 +1883,8 @@ async function initApp() {
     }
   } catch(e) {
     console.warn('LIFF 初始化跳過或失敗，啟用本機測試模式:', e.message);
-    state.user.id = 'local_tester_001';
-    state.user.name = '本機測試員';
+    state.user.id = '管理員';
+    state.user.name = '管理員';
     state.user.avatar = 'https://ui-avatars.com/api/?name=Test&background=00A676&color=fff';
     document.getElementById('user-name').textContent = state.user.name;
     document.getElementById('user-avatar').src = state.user.avatar;
@@ -1821,7 +1903,22 @@ async function initApp() {
     fetchChoresSchedule(),
   ]);
 
-  state.members = members;
+    state.allUsers = members;
+  const me = members.find(m => m.id === state.user.id);
+  state.user.role = me ? (me.role || 'guest') : 'guest';
+  if (state.user.id === '\u7BA1\u7406\u54E1') state.user.role = 'admin';
+  state.members = members.filter(u => u.role !== 'guest' && u.id !== '\u7BA1\u7406\u54E1');
+  for (let i = 0; i < 3; i++) {
+    if (!state.members[i]) {
+      state.members[i] = { 
+        id: MEMBERS_CONFIG[i].id, 
+        display_name: MEMBERS_CONFIG[i].name, 
+        role: 'member', 
+        present_days: 60, 
+        away_days: 0 
+      };
+    }
+  }
   state.balance = balance;
   state.ledger = ledger;
   state.rentStatus = rentStatus;
@@ -2102,7 +2199,6 @@ async function adjustMemberAwayDays(memberId, amount) {
   state.rentStatus[memberId].away_days = next;
   
   syncMembersAwayDays();
-  await handleMonthsChange();
   
   if (db) {
     try {
@@ -2115,6 +2211,8 @@ async function adjustMemberAwayDays(memberId, amount) {
       console.error(e);
     }
   }
+  
+  await handleMonthsChange();
 }
 
 function openAwayModal() {
@@ -2176,6 +2274,7 @@ function openAwayModal() {
 }
 
 function payFixedRent(userId, amount) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const displayName = getMemberName(userId);
   Swal.fire({
     title: '🏠 繳納固定房租',
@@ -2237,6 +2336,7 @@ function payFixedRent(userId, amount) {
 }
 
 function payElectricity(userId, amount) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   const displayName = getMemberName(userId);
   Swal.fire({
     title: '🔌 繳納當期水電',
@@ -2400,6 +2500,7 @@ async function fetchAndRenderOtherTab() {
 
 // 彈出並黏上新備忘錄
 function openMemoModal() {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   Swal.fire({
     title: '📌 留下備忘錄 / 留言',
     html: `
@@ -2457,12 +2558,14 @@ function openMemoModal() {
 }
 
 async function handleDeleteMemo(id) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   if (db) { await db.from('memo_records').delete().eq('id', id); }
   showToast('🗑️ 便條紙已撕下');
   fetchAndRenderOtherTab();
 }
 
 function openVisitorModal() {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   Swal.fire({
     title: '📅 新增訪客預報',
     html: `
@@ -2582,6 +2685,7 @@ function openVisitorModal() {
 }
 
 async function handleDeleteVisitor(id) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
   if (db) { 
     await db.from('visitor_records').delete().eq('id', id); 
   } else {
@@ -2591,6 +2695,49 @@ async function handleDeleteVisitor(id) {
   }
   showToast('🗑️ 訪客預報已取消');
   fetchAndRenderOtherTab();
+}
+
+function handleProfileClick() {
+  if (state.user.role !== 'admin' && state.user.id !== '\u7BA1\u7406\u54E1') {
+    showToast('\uD83D\uDC4B \u60A8\u597D\uFF0C' + state.user.name);
+    return;
+  }
+  
+  const adminList = document.getElementById('sheet-admin-users-list');
+  if (adminList && state.allUsers) {
+    adminList.innerHTML = state.allUsers.map(m => {
+      const isMe = m.id === state.user.id;
+      return `
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+          <div class="flex items-center gap-3">
+            <img src="${m.avatar_url || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23ccc%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'}" class="w-8 h-8 rounded-full object-cover">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold text-gray-800">${m.display_name} ${isMe ? '(\u4F60)' : ''}</span>
+              <span class="text-[10px] text-gray-400">${m.id}</span>
+            </div>
+          </div>
+          <select onchange="changeUserRole('${m.id}', this.value)" ${isMe ? 'disabled' : ''} class="text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-[#00A676]">
+            <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>\u7BA1\u7406\u54E1</option>
+            <option value="member" ${m.role === 'member' ? 'selected' : ''}>\u4E00\u822C\u6210\u54E1</option>
+            <option value="guest" ${m.role === 'guest' || !m.role ? 'selected' : ''}>\u8A2A\u5BA2</option>
+          </select>
+        </div>
+      `;
+    }).join('');
+  }
+  openSheet('admin');
+}
+async function changeUserRole(userId, newRole) {
+  if (state.user.role === 'guest') { showToast('\u274C \u8A2A\u5BA2\u7121\u6B0A\u9650\u9032\u884C\u6B64\u64CD\u4F5C'); return; }
+  if (db) {
+    const { error } = await db.from('users').update({ role: newRole }).eq('id', userId);
+    if (error) { showToast('\u274C \u6B0A\u9650\u66F4\u65B0\u5931\u6557\uFF1A' + error.message); return; }
+  }
+  const m = state.allUsers.find(x => x.id === userId);
+  const m2 = state.members.find(x => x.id === userId);
+  if (m2) m2.role = newRole;
+  if (m) m.role = newRole;
+  showToast('\u2705 \u6B0A\u9650\u66F4\u65B0\u6210\u529F');
 }
 </script>
 </body>

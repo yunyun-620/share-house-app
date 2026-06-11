@@ -1,519 +1,2597 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>敗家組 · 合租管家</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="敗家組公積金小金庫 — LINE Bank 風格合租管家">
+  <title>敗家組 · 合租管家</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Noto Sans TC','Inter',sans-serif; -webkit-font-smoothing: antialiased; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { scrollbar-width: none; }
+
+    /* Tab active indicator */
+    .tab-btn.active .tab-icon-wrap { background: rgba(0,166,118,0.12); }
+    .tab-btn.active { color: #00A676; }
+    .tab-btn { color: #9CA3AF; }
+
+    /* Bottom sheet animation */
+    .sheet-overlay { transition: opacity 0.25s; }
+    .sheet-overlay.open { opacity: 1; pointer-events: auto; }
+    .sheet-panel { transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); }
+    .sheet-overlay.open .sheet-panel { transform: translateY(0); }
+
+    /* Confetti particles */
+    @keyframes confetti-fall {
+      0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+      100% { transform: translateY(120px) rotate(720deg) scale(0); opacity: 0; }
+    }
+    .confetti-particle {
+      position: absolute; width: 8px; height: 8px; border-radius: 2px;
+      animation: confetti-fall 1s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+      pointer-events: none;
+    }
+
+    /* Pulse animation for unpaid rent dot */
+    @keyframes pulse-dot {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+    }
+    .pulse-dot { animation: pulse-dot 1.8s infinite; }
+
+    /* Number flip animation helper */
+    .num-flip { transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+    #month-checkbox-grid label:has(input:checked) {
+      background-color: #E7F6F1;
+      border-color: #00A676;
+      color: #00A676;
+    }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+<body class="bg-[#F4F5F7] min-h-screen flex flex-col items-center">
 
-    <div id="loading-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50 transition-opacity duration-300">
-        <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mb-4"></div>
-        <p class="text-slate-500 font-medium">敗家組管家初始化中...</p>
+<!-- ═══════════════════════════════════════════════════
+     LOADING SCREEN
+     ═══════════════════════════════════════════════════ -->
+<div id="loading-screen" class="fixed inset-0 bg-[#F4F5F7] z-[999] flex flex-col items-center justify-center gap-4">
+  <div class="w-11 h-11 rounded-full border-[3px] border-[#00A676]/20 border-t-[#00A676] animate-spin"></div>
+  <p class="text-sm text-gray-400 font-medium">敗家組管家初始化中…</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     APP SHELL
+     ═══════════════════════════════════════════════════ -->
+<div id="app" class="w-full max-w-[480px] min-h-screen flex flex-col bg-[#F4F5F7] relative" style="display:none;">
+
+  <!-- ── Sticky Header ── -->
+  <header class="flex items-center justify-between px-5 py-4 bg-[#F4F5F7] sticky top-0 z-40">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#00A676] to-[#38ef7d] flex items-center justify-center text-white text-lg">🏠</div>
+      <h1 class="text-lg font-extrabold text-gray-900 tracking-tight">敗家組·合租管家</h1>
+    </div>
+    <div class="flex items-center bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100 cursor-pointer active:scale-95 transition-transform">
+      <img id="user-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" alt="Avatar" class="w-6 h-6 rounded-full object-cover mr-2 bg-gray-100">
+      <span id="user-name" class="text-xs font-extrabold text-gray-800 pr-1 max-w-[80px] truncate">讀取中…</span>
+    </div>
+  </header>
+
+  <!-- ── Scrollable Content Area ── -->
+  <div class="flex-1 overflow-y-auto hide-scrollbar pb-[84px]">
+
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  PAGE 1: 💰 小金庫 (Finance)                ║
+         ╚══════════════════════════════════════════════╝ -->
+    <div id="page-finance" class="page px-5 space-y-5 pt-1">
+
+      <!-- 公積金錢包主卡片 -->
+      <div class="bg-gradient-to-br from-[#00A676] to-[#38ef7d] rounded-[2rem] p-6 text-white relative overflow-hidden shadow-lg shadow-[#00A676]/25">
+        <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10 pointer-events-none"></div>
+        <div class="absolute -left-5 -bottom-8 w-28 h-28 rounded-full bg-white/[0.07] pointer-events-none"></div>
+        <div class="relative z-10">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-xs font-bold opacity-80 tracking-wider">💰 敗家組公積金虛擬錢包</p>
+              <p class="text-[10px] opacity-50 italic mt-0.5" style="font-family:'Inter',sans-serif">Our Sweet Home Wallet</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-white/[0.18] backdrop-blur-sm flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01"/></svg>
+            </div>
+          </div>
+          <p class="text-[11px] opacity-60 font-medium mb-1">目前餘額（TWD）</p>
+          <div class="flex items-baseline gap-1 mb-5">
+            <span class="text-xl font-bold opacity-80" style="font-family:'Inter'">$</span>
+            <span id="pool-balance" class="text-5xl font-black tracking-tighter num-flip" style="font-family:'Inter',sans-serif">—</span>
+          </div>
+          <!-- 室友狀態牆：三人頭貼 -->
+          <div class="flex items-center justify-between">
+            <div class="flex -space-x-1.5">
+              <img id="member-avatar-0" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" class="w-7 h-7 rounded-full border-2 border-white/40 bg-white/20 object-cover">
+              <img id="member-avatar-1" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" class="w-7 h-7 rounded-full border-2 border-white/40 bg-white/20 object-cover">
+              <img id="member-avatar-2" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" class="w-7 h-7 rounded-full border-2 border-white/40 bg-white/20 object-cover">
+            </div>
+            <button onclick="openSheet('deposit')" class="flex items-center gap-1.5 bg-white/[0.22] border border-white/30 text-white text-xs font-bold px-4 py-2 rounded-full backdrop-blur-sm active:scale-95 transition-transform cursor-pointer">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              公積金儲值
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按鈕列 -->
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="openSheet('expense')" class="flex flex-col items-center justify-center gap-1 bg-white rounded-2xl py-3 px-2 shadow-sm border border-gray-100 text-xs font-bold text-gray-700 active:scale-95 transition-transform cursor-pointer hover:bg-gray-50">
+          <span class="text-lg">📥</span>
+          <span class="truncate">新增支出</span>
+        </button>
+        <button onclick="openSheet('electricity')" class="flex flex-col items-center justify-center gap-1 bg-white rounded-2xl py-3 px-2 shadow-sm border border-gray-100 text-xs font-bold text-gray-700 active:scale-95 transition-transform cursor-pointer hover:bg-gray-50">
+          <span class="text-lg">💡</span>
+          <span class="truncate">電費拆帳</span>
+        </button>
+        <button onclick="openAwayModal()" class="flex flex-col items-center justify-center gap-1 bg-white rounded-2xl py-3 px-2 shadow-sm border border-gray-100 text-xs font-bold text-gray-700 active:scale-95 transition-transform cursor-pointer hover:bg-gray-50">
+          <span class="text-lg">🧳</span>
+          <span class="truncate">報備不在屋</span>
+        </button>
+      </div>
+
+      <!-- 最近公共支出流水帳 -->
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[15px] font-extrabold text-gray-900">📋 最近公共支出</h2>
+          <span class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-2.5 py-1 rounded-full">即時同步</span>
+        </div>
+        <div id="ledger-list" class="space-y-1">
+          <div class="text-center text-gray-400 text-xs py-6">載入帳目中…</div>
+        </div>
+      </div>
     </div>
 
-    <div id="app-main" class="max-w-md mx-auto min-h-screen flex flex-col pb-12" style="display: none;">
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  PAGE 2: 🏠 繳費 (Payment)                  ║
+         ╚══════════════════════════════════════════════╝ -->
+    <div id="page-rent" class="page px-5 space-y-5 pt-1" style="display:none;">
+      <!-- 固定房租 Card -->
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[15px] font-extrabold text-gray-900 flex items-center gap-2">
+            <span>🏠</span> 固定房租
+          </h2>
+          <span id="next-month-badge" class="text-[11px] font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full"></span>
+        </div>
+        <div id="rent-list-fixed" class="space-y-2.5">
+          <!-- 固定房租室友列表 -->
+          <div class="text-center text-gray-400 text-xs py-4">載入狀態中...</div>
+        </div>
+      </div>
+
+      <!-- 當期水電 Card -->
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[15px] font-extrabold text-gray-900 flex items-center gap-2">
+            <span>⚡</span> 當期水電
+          </h2>
+          <span class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-2.5 py-1 rounded-full">動態拆帳</span>
+        </div>
+        <div id="rent-list-utility" class="space-y-2.5">
+          <!-- 當期水電室友列表 -->
+          <div class="text-center text-gray-400 text-xs py-4">載入狀態中...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  PAGE 3: 🧹 打掃 (Chores)                   ║
+         ╚══════════════════════════════════════════════╝ -->
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  PAGE 3: 📦 其他 (Other)                    ║
+         ╚══════════════════════════════════════════════╝ -->
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  PAGE 3: 🛒 購物 (Shopping)                 ║
+         ╚══════════════════════════════════════════════╝ -->
+    <div id="page-shopping" class="page px-5 space-y-5 pt-1" style="display:none;">
+      <!-- Shopping List (Pending/Buying) -->
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[15px] font-extrabold text-gray-900">🛒 敲碗採購清單</h2>
+          <button onclick="openWishModal()" class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-3 py-1.5 rounded-full cursor-pointer active:scale-95 transition-transform">+ 新增許願</button>
+        </div>
+        <div id="shoppingListItems" class="space-y-2.5">
+          <!-- shopping items rendered here -->
+        </div>
+      </div>
+
+      <!-- Fridge List (Bought) -->
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[15px] font-extrabold text-gray-900">🧊 冰箱便利貼</h2>
+        </div>
+        <div id="fridgeItems" class="space-y-2.5">
+          <!-- fridge items rendered here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  PAGE 4: 🧹 打掃 (Chores)                   ║
+         ╚══════════════════════════════════════════════╝ -->
+    <div id="page-chores" class="page px-5 space-y-5 pt-1" style="display:none;">
+      <!-- 本週家務大頭兵 -->
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-[15px] font-extrabold text-gray-900 flex items-center gap-1.5">🟢 本週家務大頭兵</h2>
+            <p class="text-[10px] text-gray-400 mt-0.5">完成家務後記得勾選打卡喔！</p>
+          </div>
+          <button onclick="nextDutyOfficer()" class="text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full active:scale-95 transition cursor-pointer">→ 下一棒</button>
+        </div>
         
-        <header class="bg-gradient-to-r border-b border-indigo-100 from-indigo-600 to-indigo-700 text-white p-5 sticky top-0 z-40 shadow-sm rounded-b-2xl">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-xl font-bold tracking-tight">敗家組 · 合租管家</h1>
-                    <p class="text-xs text-indigo-200 mt-0.5">我們的專屬公積金小金庫</p>
-                </div>
-                <div class="flex items-center space-x-3 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                    <img id="user-avatar" class="w-7 h-7 rounded-full border border-white/20" src="https://via.placeholder.com/150" alt="Avatar">
-                    <span id="user-name" class="text-sm font-medium">讀取中...</span>
-                </div>
-            </div>
-        </header>
-
-        <main class="flex-1 p-4 space-y-5">
-            
-            <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-10 -mt-10 pointer-events-none z-0 opacity-60"></div>
-                <div class="relative z-10">
-                    <h3 class="text-sm font-semibold text-slate-400 tracking-wider uppercase mb-1">💰 核心公積金餘額</h3>
-                    <div class="flex items-baseline space-x-1">
-                        <span class="text-3xl font-extrabold text-slate-900">$</span>
-                        <span id="pool-balance" class="text-4xl font-extrabold text-indigo-600 tracking-tight">---</span>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-3 mt-6">
-                        <button onclick="openModal('deposit-modal')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl shadow-sm transition active:scale-95 text-center text-sm cursor-pointer">
-                            📥 儲值入帳
-                        </button>
-                        <button onclick="openModal('elec-modal')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-xl shadow-sm transition active:scale-95 text-center text-sm cursor-pointer">
-                            💡 電費拆帳
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 房租看板 -->
-            <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-bold text-slate-800 text-base">🏠 本月房租繳費</h3>
-                    <span id="rent-month-label" class="text-xs text-slate-400 font-medium tracking-wider uppercase"></span>
-                </div>
-                <div id="rent-list" class="space-y-3">
-                    <div class="text-center text-slate-400 text-xs py-2">載入房租狀態中...</div>
-                </div>
-            </section>
-
-            <!-- 打掃看板 -->
-            <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-bold text-slate-800 text-base">🧹 隨手打掃打卡</h3>
-                    <span id="weekly-chore-count" class="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full font-bold">本週 0 次</span>
-                </div>
-                <div class="grid grid-cols-3 gap-3 mb-4">
-                    <button onclick="handleChore('倒垃圾')" class="flex flex-col items-center justify-center bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 p-3 rounded-xl transition cursor-pointer active:scale-95">
-                        <span class="text-2xl mb-1">🗑️</span>
-                        <span class="text-xs font-semibold text-slate-600 mt-1">倒垃圾</span>
-                    </button>
-                    <button onclick="handleChore('掃拖地')" class="flex flex-col items-center justify-center bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 p-3 rounded-xl transition cursor-pointer active:scale-95">
-                        <span class="text-2xl mb-1">🧹</span>
-                        <span class="text-xs font-semibold text-slate-600 mt-1">掃拖地</span>
-                    </button>
-                    <button onclick="handleChore('刷廁所')" class="flex flex-col items-center justify-center bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 p-3 rounded-xl transition cursor-pointer active:scale-95">
-                        <span class="text-2xl mb-1">🚽</span>
-                        <span class="text-xs font-semibold text-slate-600 mt-1">刷廁所</span>
-                    </button>
-                </div>
-                <div id="chore-list" class="space-y-2 max-h-32 overflow-y-auto pr-1">
-                    <div class="text-center text-slate-400 text-xs py-2">載入打卡紀錄中...</div>
-                </div>
-            </section>
-
-            <section class="space-y-3">
-                <div class="flex items-center justify-between px-1">
-                    <h3 class="font-bold text-slate-800 text-base">📋 最近公共支出紀錄</h3>
-                    <span class="text-xs text-slate-400">即時同步</span>
-                </div>
-                <div id="records-list" class="space-y-2">
-                    <div class="bg-white p-4 rounded-xl text-center text-slate-400 text-sm border border-slate-100">
-                        正在從 Supabase 讀取最新帳目...
-                    </div>
-                </div>
-            </section>
-
-        </main>
-    </div>
-
-    <div id="elec-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto transform translate-y-10 transition-transform duration-300 shadow-xl">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="text-lg font-bold text-slate-900">💡 智慧電費拆帳計算機</h3>
-                <button onclick="closeModal('elec-modal')" class="text-slate-400 hover:text-slate-600 p-1 text-xl">✕</button>
-            </div>
-            
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">📅 當期帳單期別</label>
-                    <input type="text" id="elec-period" placeholder="例如：2026年5-6月" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">💵 當期電費總金額 ($)</label>
-                    <input type="number" id="elec-total" placeholder="請輸入台電帳單總金額" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                </div>
-                
-                <hr class="border-slate-100 my-2">
-                <p class="text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg font-medium">規則：系統將自動根據每人實際「居住天數」佔總人天數的比例進行公平拆帳。</p>
-                
-                <div class="space-y-2.5">
-                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <span class="text-sm font-medium text-slate-700">👤 隊員 A 居住天數</span>
-                        <input type="number" id="days-a" value="60" class="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-center text-sm focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <span class="text-sm font-medium text-slate-700">👤 隊員 B 居住天數</span>
-                        <input type="number" id="days-b" value="60" class="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-center text-sm focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <span class="text-sm font-medium text-slate-700">👤 隊員 C 居住天數</span>
-                        <input type="number" id="days-c" value="60" class="w-24 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-center text-sm focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                </div>
-            </div>
-
-            <button onclick="handleCalculateElectricity()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-md transition mt-2 cursor-pointer">
-                🧮 算好金額並同步到小金庫
-            </button>
+        <div class="flex items-center gap-3 bg-[#E7F6F1]/50 border border-[#00A676]/20 rounded-2xl p-4 mb-4">
+          <img id="duty-avatar" src="" class="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm bg-gray-200 hidden">
+          <div id="duty-avatar-placeholder" class="w-12 h-12 rounded-full flex items-center justify-center font-extrabold text-sm flex-shrink-0 bg-[#00A676] text-white">?</div>
+          <div>
+            <p class="text-[11px] font-extrabold text-[#00A676] mb-0.5">本週輪值</p>
+            <p id="duty-name" class="text-base font-extrabold text-gray-900">載入中…</p>
+          </div>
         </div>
-    </div>
-
-    <div id="deposit-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 transform translate-y-10 transition-transform duration-300 shadow-xl">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="text-lg font-bold text-slate-900">📥 公積金儲值入帳</h3>
-                <button onclick="closeModal('deposit-modal')" class="text-slate-400 hover:text-slate-600 p-1 text-xl">✕</button>
-            </div>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">💰 儲值金額 ($)</label>
-                    <input type="number" id="deposit-amount" placeholder="請輸入入帳金額" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">✍️ 備註說明</label>
-                    <input type="text" id="deposit-note" placeholder="例如：隊員 A 補繳六月份公積金" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                </div>
-            </div>
-            <button onclick="handleDepositSubmit()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-md transition cursor-pointer">
-                確認入帳
-            </button>
+        <div id="duty-tasks" class="space-y-2">
+          <!-- tasks will be rendered via JS to keep it dynamic -->
+          <div class="text-center text-gray-400 text-xs py-2">載入任務中…</div>
         </div>
+      </div>
+
+      <!-- 隨手打掃打卡 -->
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[15px] font-extrabold text-gray-900">🧹 隨手打掃打卡</h2>
+          <span id="weekly-chore-count" class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-2.5 py-1 rounded-full">本週 0 次</span>
+        </div>
+
+        <!-- 本週家務國王 -->
+        <div id="chore-king-bar" class="hidden flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-3 mb-4">
+          <span class="text-2xl">👑</span>
+          <div>
+            <p class="text-xs font-extrabold text-amber-700">本週家務國王</p>
+            <p id="chore-king-name" class="text-sm font-bold text-amber-900">—</p>
+          </div>
+          <img id="chore-king-avatar" src="" class="w-9 h-9 rounded-full object-cover ml-auto border-2 border-amber-200 hidden">
+        </div>
+
+        <!-- 三顆打掃大按鈕 -->
+        <div class="grid grid-cols-3 gap-3 mb-5 relative" id="chore-buttons-area">
+          <button onclick="handleChore('倒垃圾')" class="chore-punch-btn flex flex-col items-center justify-center bg-gray-50 hover:bg-[#E7F6F1] border border-gray-100 hover:border-[#00A676]/30 p-4 rounded-2xl transition-all cursor-pointer active:scale-90">
+            <span class="text-3xl mb-2">🗑️</span>
+            <span class="text-xs font-extrabold text-gray-600">倒垃圾</span>
+          </button>
+          <button onclick="handleChore('掃拖地')" class="chore-punch-btn flex flex-col items-center justify-center bg-gray-50 hover:bg-[#E7F6F1] border border-gray-100 hover:border-[#00A676]/30 p-4 rounded-2xl transition-all cursor-pointer active:scale-90">
+            <span class="text-3xl mb-2">🧹</span>
+            <span class="text-xs font-extrabold text-gray-600">掃拖地</span>
+          </button>
+          <button onclick="handleChore('刷廁所')" class="chore-punch-btn flex flex-col items-center justify-center bg-gray-50 hover:bg-[#E7F6F1] border border-gray-100 hover:border-[#00A676]/30 p-4 rounded-2xl transition-all cursor-pointer active:scale-90">
+            <span class="text-3xl mb-2">🚽</span>
+            <span class="text-xs font-extrabold text-gray-600">刷廁所</span>
+          </button>
+        </div>
+
+        <p class="text-xs font-bold text-gray-400 mb-2">近期打卡紀錄</p>
+        <div id="chore-list" class="space-y-1.5 max-h-48 overflow-y-auto hide-scrollbar">
+          <div class="text-center text-gray-400 text-xs py-4">載入打卡紀錄中…</div>
+        </div>
+      </div>
     </div>
 
-    <script>
-        // 1. 初始化 Supabase 聯絡大腦 (確保變數乾淨，不重複宣告)
-        const SUPABASE_URL = "https://gdccfmbtvkafymcxtqif.supabase.co";
-        const SUPABASE_ANON_KEY = "sb_publishable_Ux47vnWMNuEQ85UG96tzqQ_fp0ym8QQ";
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  PAGE 5: 📦 其他 (Other)                    ║
+         ╚══════════════════════════════════════════════╝ -->
+    <div id="page-other" class="page px-5 space-y-5 pt-1" style="display:none;">
+      <!-- 📌 備忘錄公告欄 -->
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-[15px] font-extrabold text-gray-900 flex items-center gap-2">📌 綜合備忘公佈欄</h2>
+            <p class="text-[10px] text-gray-400 mt-0.5">租屋生活點滴與工作公事備忘 📝</p>
+          </div>
+          <button onclick="openMemoModal()" class="text-[11px] font-bold text-white bg-[#00A676] px-4 py-2 rounded-full active:scale-95 shadow-sm shadow-[#00A676]/25 transition cursor-pointer">+ 寫留言</button>
+        </div>
 
-        let currentUserName = "神秘室友";
+        <!-- 🏠 租屋生活 分類 -->
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">🏠 租屋生活</span>
+            <div class="flex-1 h-[1px] bg-gray-100"></div>
+          </div>
+          <div id="memo-home-container" class="grid grid-cols-2 gap-3">
+            <div class="col-span-2 text-center text-gray-400 text-xs py-4">目前沒有租屋生活備忘～</div>
+          </div>
+        </div>
 
-        // 2. 初始化 LINE LIFF 通道
-        async function initLIFF() {
-            try {
-                await liff.init({ liffId: "2010351344-iCnlrad4" });
-                
-                if (liff.isLoggedIn()) {
-                    const profile = await liff.getProfile();
-                    currentUserName = profile.displayName;
-                    
-                    // 把 LINE 的資料渲染到右上角介面
-                    document.getElementById('user-name').innerText = currentUserName;
-                    document.getElementById('user-avatar').src = profile.pictureUrl || "https://via.placeholder.com/150";
-                    
-                    // 資料讀取完畢，隱藏轉圈圈載入畫面，跳出美美的主頁面
-                    document.getElementById('loading-screen').classList.add('opacity-0');
-                    setTimeout(() => {
-                        document.getElementById('loading-screen').style.display = 'none';
-                        document.getElementById('app-main').style.display = 'flex';
-                    }, 300);
+        <!-- 💼 工作公事 分類 -->
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">💼 工作公事</span>
+            <div class="flex-1 h-[1px] bg-gray-100"></div>
+          </div>
+          <div id="memo-work-container" class="grid grid-cols-2 gap-3">
+            <div class="col-span-2 text-center text-gray-400 text-xs py-4">目前沒有工作公事備忘～</div>
+          </div>
+        </div>
+      </div>
 
-                    // 同步去跟 Supabase 要目前的帳單資料
-                    fetchDataFromSupabase();
-                } else {
-                    liff.login();
-                }
-            } catch (error) {
-                console.error("LIFF 啟動失敗:", error);
-                // 為了方便你在電腦網頁測試，如果是在電腦開，我們依然讓他進去
-                document.getElementById('loading-screen').style.display = 'none';
-                document.getElementById('app-main').style.display = 'flex';
-                document.getElementById('user-name').innerText = "本機測試員";
-                fetchDataFromSupabase();
-            }
+      <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-[15px] font-extrabold text-gray-800 flex items-center gap-2">📅 訪客預報牆</h2>
+            <p class="text-[10px] text-gray-400 mt-0.5">帶人回家先登記，合租更融洽 🥰</p>
+          </div>
+          <button onclick="openVisitorModal()" class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-3 py-1.5 rounded-full active:scale-95 transition cursor-pointer">+ 報備訪客</button>
+        </div>
+        <div id="visitor-list-container" class="space-y-2.5">
+          <div class="text-center text-gray-400 text-xs py-4">近期家裡很清靜，沒有訪客預報～</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end scroll area -->
+
+  <!-- ── Bottom Tab Bar ── -->
+  <!-- ── Bottom Tab Bar ── -->
+  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white/90 backdrop-blur-md border-t border-gray-100 flex items-start pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] z-40 shadow-[0_-4px_24px_rgba(0,0,0,0.04)]">
+    <button class="tab-btn active flex-1 flex flex-col items-center gap-1 cursor-pointer" data-tab="finance">
+      <span class="text-xl mb-0.5">🏦</span>
+      <span class="text-[10px] font-semibold">小金庫</span>
+    </button>
+    <button class="tab-btn flex-1 flex flex-col items-center gap-1 cursor-pointer" data-tab="rent">
+      <span class="text-xl mb-0.5">💳</span>
+      <span class="text-[10px] font-semibold">繳費</span>
+    </button>
+    <button class="tab-btn flex-1 flex flex-col items-center gap-1 cursor-pointer" data-tab="shopping">
+      <span class="text-xl mb-0.5">🛒</span>
+      <span class="text-[10px] font-semibold">購物</span>
+    </button>
+    <button class="tab-btn flex-1 flex flex-col items-center gap-1 cursor-pointer" data-tab="chores">
+      <span class="text-xl mb-0.5">🧹</span>
+      <span class="text-[10px] font-semibold">打掃</span>
+    </button>
+    <button class="tab-btn flex-1 flex flex-col items-center gap-1 cursor-pointer" data-tab="other">
+      <span class="text-xl mb-0.5">📦</span>
+      <span class="text-[10px] font-semibold">其他</span>
+    </button>
+  </nav>
+
+</div><!-- end #app -->
+
+<!-- ═══════════════════════════════════════════════════
+     MODALS / BOTTOM SHEETS
+     ═══════════════════════════════════════════════════ -->
+
+<!-- ── 儲值入帳 ── -->
+<div id="sheet-deposit" class="sheet-overlay fixed inset-0 bg-black/50 z-50 flex items-end opacity-0 pointer-events-none backdrop-blur-sm">
+  <div class="sheet-panel bg-white w-full max-w-[480px] mx-auto rounded-t-[2rem] shadow-xl transform translate-y-full max-h-[88dvh] flex flex-col overflow-hidden">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 flex-shrink-0"></div>
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-50 flex-shrink-0">
+      <h3 class="text-lg font-extrabold text-gray-900">💰 公積金儲值</h3>
+      <button onclick="closeSheet('deposit')" class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-sm hover:bg-gray-200 transition cursor-pointer">✕</button>
+    </div>
+    <div class="px-6 py-5 overflow-y-auto flex-1 hide-scrollbar space-y-5">
+      <div>
+        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">儲值金額（TWD）</label>
+        <div class="flex items-center border-b-2 border-gray-100 focus-within:border-[#00A676] transition-colors pb-2">
+          <span class="text-2xl font-extrabold text-gray-300 mr-2">$</span>
+          <input type="number" id="deposit-amount" placeholder="0" inputmode="decimal" class="w-full text-4xl font-extrabold text-gray-900 bg-transparent focus:outline-none placeholder-gray-200" style="font-family:'Inter',sans-serif">
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="document.getElementById('deposit-amount').value=300" class="flex-1 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-600 active:scale-95 transition-transform cursor-pointer hover:border-[#00A676] hover:text-[#00A676]">$300</button>
+          <button onclick="document.getElementById('deposit-amount').value=500" class="flex-1 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-600 active:scale-95 transition-transform cursor-pointer hover:border-[#00A676] hover:text-[#00A676]">$500</button>
+          <button onclick="document.getElementById('deposit-amount').value=1000" class="flex-1 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-600 active:scale-95 transition-transform cursor-pointer hover:border-[#00A676] hover:text-[#00A676]">$1,000</button>
+        </div>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">備註說明</label>
+        <input type="text" id="deposit-note" placeholder="例如：補繳 6 月份公積金" class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-[#00A676] focus:bg-white transition">
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-50 flex-shrink-0 bg-white">
+      <button onclick="handleDeposit()" class="w-full bg-[#00A676] hover:bg-[#009268] text-white font-extrabold text-base py-4 rounded-2xl shadow-lg shadow-[#00A676]/25 active:scale-[0.97] transition-all cursor-pointer">✅ 確認儲值</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 新增支出 ── -->
+<div id="sheet-expense" class="sheet-overlay fixed inset-0 bg-black/50 z-50 flex items-end opacity-0 pointer-events-none backdrop-blur-sm">
+  <div class="sheet-panel bg-white w-full max-w-[480px] mx-auto rounded-t-[2rem] shadow-xl transform translate-y-full max-h-[88dvh] flex flex-col overflow-hidden">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 flex-shrink-0"></div>
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-50 flex-shrink-0">
+      <h3 class="text-lg font-extrabold text-gray-900">📥 登記公共支出</h3>
+      <button onclick="closeSheet('expense')" class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-sm hover:bg-gray-200 transition cursor-pointer">✕</button>
+    </div>
+    <div class="px-6 py-5 overflow-y-auto flex-1 hide-scrollbar space-y-5">
+      <div>
+        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">購買品項名稱</label>
+        <input type="text" id="expense-title" placeholder="例如：洗碗精、衛生紙…" autocomplete="off" class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-[#00A676] focus:bg-white transition">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">花費金額（TWD）</label>
+        <div class="flex items-center border-b-2 border-gray-100 focus-within:border-[#00A676] transition-colors pb-2">
+          <span class="text-xl font-extrabold text-gray-300 mr-2">$</span>
+          <input type="number" id="expense-amount" placeholder="0" inputmode="decimal" class="w-full text-3xl font-extrabold text-gray-900 bg-transparent focus:outline-none placeholder-gray-200" style="font-family:'Inter',sans-serif">
+        </div>
+      </div>
+      <input type="hidden" id="expense-category" value="生活用品">
+    </div>
+    <div class="px-6 py-4 border-t border-gray-50 flex-shrink-0 bg-white flex gap-3">
+      <button onclick="closeSheet('expense')" class="flex-1 bg-gray-100 text-gray-500 font-bold text-sm py-3.5 rounded-2xl active:scale-[0.97] transition-all cursor-pointer">取消</button>
+      <button onclick="handleExpense()" class="flex-[2] bg-[#00A676] hover:bg-[#009268] text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-[#00A676]/25 active:scale-[0.97] transition-all cursor-pointer">📝 記帳送出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 電費拆帳計算機 ── -->
+<div id="sheet-electricity" class="sheet-overlay fixed inset-0 bg-black/50 z-50 flex items-end opacity-0 pointer-events-none backdrop-blur-sm">
+  <div class="sheet-panel bg-white w-full max-w-[480px] mx-auto rounded-t-[2rem] shadow-xl transform translate-y-full max-h-[92dvh] flex flex-col overflow-hidden">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 flex-shrink-0"></div>
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-50 flex-shrink-0">
+      <h3 class="text-lg font-extrabold text-gray-900">💡 智慧電費拆帳</h3>
+      <button onclick="closeSheet('electricity')" class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-sm hover:bg-gray-200 transition cursor-pointer">✕</button>
+    </div>
+    <div class="px-6 py-5 overflow-y-auto flex-1 hide-scrollbar space-y-5">
+      <div class="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+        <p class="text-xs font-bold text-gray-700 flex items-center gap-1 mb-2" id="days-modifier-title">📅 1. 確認本期扣除天數 (當月共 — 天)</p>
+        <div id="days-modifier-container" class="space-y-2"></div>
+      </div>
+
+      <!-- 模式切換 -->
+      <div class="flex bg-gray-100 rounded-2xl p-1">
+        <button id="mode-days" onclick="setElecMode('days')" class="flex-1 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer bg-white text-gray-900 shadow-sm">📅 按天數拆分</button>
+        <button id="mode-equal" onclick="setElecMode('equal')" class="flex-1 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer text-gray-400">👥 平均三等分</button>
+      </div>
+
+      <!-- 電費帳單期別 (多選) -->
+      <div>
+        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">📅 當期帳單期別 (可多選月份)</label>
+        <div id="month-checkbox-grid" class="grid grid-cols-4 gap-2">
+          <!-- 動態生成 12 個月的核取方塊晶片 -->
+        </div>
+      </div>
+
+      <!-- 總金額 -->
+      <div>
+        <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">💵 電費總金額</label>
+        <div class="flex items-baseline border-b-2 border-gray-100 focus-within:border-[#00A676] transition-colors pb-2">
+          <span class="text-3xl font-extrabold text-gray-300 mr-2">$</span>
+          <input type="number" id="elec-total" placeholder="0" inputmode="decimal" oninput="calcElectricity()" class="w-full text-5xl font-extrabold text-gray-900 bg-transparent focus:outline-none placeholder-gray-200 tracking-tighter" style="font-family:'Inter',sans-serif">
+        </div>
+      </div>
+
+      <!-- 三人並排拆帳卡片 -->
+      <div id="elec-days-section">
+        <label class="block text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-2.5 py-1 rounded-full uppercase tracking-wider mb-3 inline-block">✅ 已自動載入本期在屋天數</label>
+        <div class="flex justify-between items-start bg-gray-50/50 rounded-3xl p-4 border border-gray-50">
+          <!-- 室友 A -->
+          <div class="flex flex-col items-center flex-1">
+            <img id="elec-avatar-0" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" class="w-12 h-12 rounded-full object-cover mb-1 border-[3px] border-white shadow-sm bg-gray-200">
+            <span id="elec-name-0" class="text-[10px] font-extrabold text-gray-500 mb-3 truncate max-w-[70px]">室友 A</span>
+            <div class="bg-gray-100 rounded-xl w-14 h-9 flex items-center justify-center mb-3 shadow-inner">
+              <span id="elec-day-0" class="elec-day-input text-base font-extrabold text-gray-700" style="font-family:'Inter'">60</span><span class="text-[10px] ml-0.5 text-gray-400">天</span>
+            </div>
+            <span class="text-[9px] font-bold text-gray-400 mb-0.5">應付</span>
+            <div class="flex items-baseline">
+              <span class="text-xs font-extrabold text-gray-900 mr-0.5" style="font-family:'Inter'">$</span>
+              <span id="elec-res-0" class="text-lg font-extrabold text-gray-900 num-flip" style="font-family:'Inter'">0</span>
+            </div>
+          </div>
+          <div class="w-[1px] h-28 bg-gray-200/60 mt-3 mx-1"></div>
+          <!-- 室友 B -->
+          <div class="flex flex-col items-center flex-1">
+            <img id="elec-avatar-1" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" class="w-12 h-12 rounded-full object-cover mb-1 border-[3px] border-white shadow-sm bg-gray-200">
+            <span id="elec-name-1" class="text-[10px] font-extrabold text-gray-500 mb-3 truncate max-w-[70px]">室友 B</span>
+            <div class="bg-gray-100 rounded-xl w-14 h-9 flex items-center justify-center mb-3 shadow-inner">
+              <span id="elec-day-1" class="elec-day-input text-base font-extrabold text-gray-700" style="font-family:'Inter'">60</span><span class="text-[10px] ml-0.5 text-gray-400">天</span>
+            </div>
+            <span class="text-[9px] font-bold text-gray-400 mb-0.5">應付</span>
+            <div class="flex items-baseline">
+              <span class="text-xs font-extrabold text-gray-900 mr-0.5" style="font-family:'Inter'">$</span>
+              <span id="elec-res-1" class="text-lg font-extrabold text-gray-900 num-flip" style="font-family:'Inter'">0</span>
+            </div>
+          </div>
+          <div class="w-[1px] h-28 bg-gray-200/60 mt-3 mx-1"></div>
+          <!-- 室友 C -->
+          <div class="flex flex-col items-center flex-1">
+            <img id="elec-avatar-2" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" class="w-12 h-12 rounded-full object-cover mb-1 border-[3px] border-white shadow-sm bg-gray-200">
+            <span id="elec-name-2" class="text-[10px] font-extrabold text-gray-500 mb-3 truncate max-w-[70px]">室友 C</span>
+            <div class="bg-gray-100 rounded-xl w-14 h-9 flex items-center justify-center mb-3 shadow-inner">
+              <span id="elec-day-2" class="elec-day-input text-base font-extrabold text-gray-700" style="font-family:'Inter'">60</span><span class="text-[10px] ml-0.5 text-gray-400">天</span>
+            </div>
+            <span class="text-[9px] font-bold text-gray-400 mb-0.5">應付</span>
+            <div class="flex items-baseline">
+              <span class="text-xs font-extrabold text-[#00A676] mr-0.5" style="font-family:'Inter'">$</span>
+              <span id="elec-res-2" class="text-lg font-extrabold text-[#00A676] num-flip" style="font-family:'Inter'">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-50 flex-shrink-0 bg-white flex gap-3">
+      <button onclick="closeSheet('electricity')" class="flex-1 bg-gray-100 text-gray-500 font-bold text-sm py-3.5 rounded-2xl active:scale-[0.97] transition-all cursor-pointer">取消</button>
+      <button onclick="handleElectricity()" class="flex-[2] bg-[#00A676] hover:bg-[#009268] text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-[#00A676]/25 active:scale-[0.97] transition-all cursor-pointer flex items-center justify-center gap-2">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 10.304c0-5.369-5.383-9.738-12-9.738-6.616 0-12 4.369-12 9.738 0 4.814 4.269 8.846 10.036 9.608.391.084.922.258 1.057.592.122.303.079.778.039 1.085l-.171 1.027c-.053.303-.242 1.186 1.039.647 1.281-.54 6.922-4.069 9.428-6.967 1.739-1.907 2.572-4.187 2.572-5.992z"/></svg>
+        確認並分享到 LINE
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast 通知 ── -->
+<div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-5 py-3 rounded-full font-bold text-sm shadow-xl opacity-0 pointer-events-none transition-all duration-300 z-[200] max-w-[calc(100vw-48px)] truncate translate-y-2">
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ─── CONFIG ──────────────────────────────────
+const LIFF_ID       = '2010351344-iCnlrad4';
+const SUPABASE_URL  = 'https://gdccfmbtvkafymcxtqif.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_Ux47vnWMNuEQ85UG96tzqQ_fp0ym8QQ';
+
+const MEMBERS_CONFIG = [
+  { id: 'A', name: '室友 A', rentAmount: 8000 },
+  { id: 'B', name: '室友 B', rentAmount: 7500 },
+  { id: 'C', name: '室友 C', rentAmount: 7500 },
+];
+
+// ─── STATE ───────────────────────────────────
+const state = {
+  user: { id: null, name: '訪客', avatar: null },
+  members: [],      // 從 users 表載入
+  balance: 0,
+  ledger: [],
+  rentStatus: {},
+  rentPayments: [],
+  chores: [],
+  fridgeItems: [],
+  choresSchedule: null,
+  elecMode: 'days', // 'days' or 'equal'
+};
+
+let db = null; // Supabase client
+
+// ─── HELPERS ─────────────────────────────────
+function showToast(msg, duration = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.remove('opacity-0','translate-y-2');
+  el.classList.add('opacity-100','translate-y-0');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => {
+    el.classList.add('opacity-0','translate-y-2');
+    el.classList.remove('opacity-100','translate-y-0');
+  }, duration);
+}
+
+function animateNum(el, from, to, ms = 500) {
+  const s = performance.now(), d = to - from;
+  function step(now) {
+    const p = Math.min((now - s) / ms, 1);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + d * e).toLocaleString();
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), now = new Date();
+  const diff = Math.floor((now - d) / 86400000);
+  if (diff === 0) return '今天';
+  if (diff === 1) return '昨天';
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function getCurrentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+function getMemberName(userId) {
+  const m = state.members.find(u => u.id === userId);
+  return m ? m.display_name : userId;
+}
+
+function getMemberAvatar(userId) {
+  const m = state.members.find(u => u.id === userId);
+  return m?.avatar_url || null;
+}
+
+// ─── CONFETTI 煙火特效 ─────────────────────
+function spawnConfetti(targetEl) {
+  const rect = targetEl.getBoundingClientRect();
+  const container = document.getElementById('chore-buttons-area');
+  const colors = ['#00A676','#38ef7d','#FFD700','#FF6B6B','#6C63FF','#FF9F43'];
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-particle';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.left = (rect.left - container.getBoundingClientRect().left + rect.width/2 + (Math.random()-0.5)*40) + 'px';
+    p.style.top = (rect.top - container.getBoundingClientRect().top + (Math.random()-0.5)*20) + 'px';
+    p.style.animationDuration = (0.6 + Math.random()*0.6) + 's';
+    p.style.transform = `translateX(${(Math.random()-0.5)*60}px)`;
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  }
+}
+
+// ─── SHEET / MODAL SYSTEM ────────────────────
+function openSheet(id) {
+  const overlay = document.getElementById('sheet-' + id);
+  if (!overlay) return;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  if (id === 'electricity') {
+    if (typeof renderMonthCheckboxGrid === 'function') {
+      renderMonthCheckboxGrid();
+    }
+    if (typeof handleMonthsChange === 'function') {
+      handleMonthsChange();
+    }
+  }
+}
+function closeSheet(id) {
+  const overlay = document.getElementById('sheet-' + id);
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Close on backdrop click
+document.querySelectorAll('.sheet-overlay').forEach(ov => {
+  ov.addEventListener('click', e => {
+    if (e.target === ov) closeSheet(ov.id.replace('sheet-', ''));
+  });
+});
+
+// ─── TAB NAVIGATION ─────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+    document.getElementById('page-' + tab).style.display = '';
+    if (tab === 'other' && typeof fetchAndRenderOtherTab === 'function') {
+      fetchAndRenderOtherTab();
+    } else if (tab === 'chores') {
+      renderDutyOfficer();
+      renderChoreList();
+    } else if (tab === 'shopping') {
+      renderFridgeList();
+    }
+  });
+});
+
+// ─── ELECTRICITY MODE TOGGLE ─────────────────
+function setElecMode(mode) {
+  state.elecMode = mode;
+  const daysBtn = document.getElementById('mode-days');
+  const equalBtn = document.getElementById('mode-equal');
+  if (mode === 'days') {
+    daysBtn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer bg-white text-gray-900 shadow-sm';
+    equalBtn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer text-gray-400';
+  } else {
+    equalBtn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer bg-white text-gray-900 shadow-sm';
+    daysBtn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer text-gray-400';
+  }
+  if (typeof renderDaysModifierInElectricityModal === 'function') {
+    renderDaysModifierInElectricityModal();
+  }
+  calcElectricity();
+}
+
+// ─── ELECTRICITY CALC (即時跳表) ──────────────
+function calcElectricity() {
+  const total = parseFloat(document.getElementById('elec-total').value) || 0;
+  let days = [60, 60, 60];
+  if (state.members && state.members.length >= 3) {
+    days = [
+      state.members[0].present_days ?? 60,
+      state.members[1].present_days ?? 60,
+      state.members[2].present_days ?? 60,
+    ];
+  }
+  const sumDays = days[0] + days[1] + days[2];
+  let results = [0, 0, 0];
+
+  if (state.elecMode === 'equal' && total > 0) {
+    const each = Math.round(total / 3);
+    results = [each, each, total - each * 2]; // 確保加總正確
+  } else if (sumDays > 0 && total > 0) {
+    results[0] = Math.round(total * (days[0] / sumDays));
+    results[1] = Math.round(total * (days[1] / sumDays));
+    results[2] = total - results[0] - results[1]; // 微調確保加總
+  }
+
+  for (let i = 0; i < 3; i++) {
+    const el = document.getElementById('elec-res-' + i);
+    const prevVal = parseInt(el.textContent.replace(/,/g,'')) || 0;
+    if (prevVal !== results[i]) {
+      animateNum(el, prevVal, results[i], 300);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SUPABASE DATA LAYER
+// ═══════════════════════════════════════════════
+
+async function fetchMembers() {
+  if (!db) return MEMBERS_CONFIG.map((m,i) => ({ id: m.id, display_name: m.name, avatar_url: null, role: i===0?'admin':'member', present_days: 60, away_days: 0, duty_order: i+1 }));
+  const { data, error } = await db.from('users').select('*');
+  if (error || !data || data.length === 0) return MEMBERS_CONFIG.map((m,i) => ({ id: m.id, display_name: m.name, avatar_url: null, role: i===0?'admin':'member', present_days: 60, away_days: 0, duty_order: i+1 }));
+  return data.map(u => ({...u, present_days: u.present_days ?? 60, away_days: u.away_days ?? 0, duty_order: u.duty_order ?? 99}));
+}
+
+async function fetchChoresSchedule() {
+  if (!db) return { id: 1, current_user_id: MEMBERS_CONFIG[0].id, task_garbage: false, task_floor: false, task_toilet: false };
+  try {
+    const today = new Date();
+    const day = today.getDay() || 7; 
+    today.setHours(0,0,0,0);
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - day + 1);
+    const weekStart = monday.toISOString().split('T')[0];
+
+    let { data, error } = await db.from('chores_schedule').select('*').eq('week_start_date', weekStart).maybeSingle();
+    
+    // 💡 關鍵修正：如果這週在資料庫還沒有紀錄，就自動幫忙塞入一筆符合後台限制的初始資料
+    if (!data && !error) {
+      const firstDuty = state.members.sort((a,b)=>(a.duty_order)-(b.duty_order))[0];
+      const newSchedule = { 
+        week_start_date: weekStart, 
+        current_user_id: firstDuty?.id || 'A',
+        task_garbage: false,
+        task_floor: false,
+        task_toilet: false
+      };
+      const { data: inserted } = await db.from('chores_schedule').insert([newSchedule]).select().maybeSingle();
+      data = inserted || newSchedule;
+    }
+    return data || { id: 1, current_user_id: 'A', task_garbage: false, task_floor: false, task_toilet: false };
+  } catch(e) { 
+    console.error("排班表載入失敗:", e);
+    return { id: 1, current_user_id: 'A', task_garbage: false, task_floor: false, task_toilet: false }; 
+  }
+}
+
+async function fetchBalance() {
+  if (!db) return 1550;
+  const { data, error } = await db.from('money_records').select('amount, type');
+  if (error || !data) return 0;
+  let bal = 0;
+  data.forEach(tx => {
+    if (tx.type === 'deposit') bal += Number(tx.amount);
+    if (tx.type === 'expense') bal -= Number(tx.amount);
+  });
+  return bal;
+}
+
+async function fetchLedger(limit = 10) {
+  if (!db) return [
+    { id:3, note:'殺蟑神器 & 垃圾袋', amount:320, type:'expense', operator_id:'B', created_at: new Date(Date.now()-86400000*0).toISOString() },
+    { id:2, note:'衛生紙 3 串', amount:250, type:'expense', operator_id:'A', created_at: new Date(Date.now()-86400000*1).toISOString() },
+    { id:1, note:'公積金儲值', amount:1500, type:'deposit', operator_id:'A', created_at: new Date(Date.now()-86400000*9).toISOString() },
+  ];
+  const { data, error } = await db.from('money_records').select('*').order('created_at', { ascending: false }).limit(limit);
+  if (error) return [];
+  return data || [];
+}
+
+async function fetchRentStatus(month) {
+  if (!db) return {}; // Local will rely on defaults
+  try {
+    const { data, error } = await db.from('rent_status').select('*').eq('billing_month', month);
+    if (error) return {};
+    const map = {};
+    (data||[]).forEach(r => { map[r.user_id] = r; });
+    return map;
+  } catch(e) { return {}; }
+}
+
+async function fetchRentPayments(month) {
+  if (!db) return [];
+  try {
+    const { data, error } = await db.from('rent_payments').select('*').eq('billing_month', month);
+    if (error) return [];
+    return data || [];
+  } catch(e) { return []; }
+}
+
+async function fetchChores(limit = 10) {
+  if (!db) return [
+    { id:2, chore_type:'倒垃圾', user_id:'C', created_at: new Date(Date.now()-86400000*1).toISOString() },
+    { id:1, chore_type:'刷廁所', user_id:'A', created_at: new Date(Date.now()-86400000*2).toISOString() },
+  ];
+  const { data, error } = await db.from('chores_records').select('*').order('created_at', { ascending: false }).limit(limit);
+  if (error) return [];
+  return data || [];
+}
+
+async function fetchFridgeItems() {
+  if (!db) return [
+    { id:1, item_name:'瑞穗鮮乳', quantity:'1 瓶', expiry_date: new Date(Date.now()+86400000*1).toISOString().split('T')[0], buyer_id:'A' },
+    { id:2, item_name:'雞蛋', quantity:'10 顆', expiry_date: new Date(Date.now()+86400000*5).toISOString().split('T')[0], buyer_id:'B' },
+  ];
+  const { data, error } = await db.from('fridge_items').select('*').order('expiry_date', { ascending: true });
+  if (error) return [];
+  return data || [];
+}
+
+// ─── WRITE OPERATIONS ────────────────────────
+
+async function handleDeposit() {
+  const amount = parseFloat(document.getElementById('deposit-amount').value);
+  const note = document.getElementById('deposit-note').value || '公積金儲值';
+  if (!amount || amount <= 0) { showToast('❌ 請輸入有效金額'); return; }
+
+  if (db) {
+    const { error } = await db.from('money_records').insert([{ type: 'deposit', amount, note, operator_id: state.user.id || state.user.name }]);
+    if (error) { showToast('❌ 儲值失敗：' + error.message); return; }
+  }
+
+  const prev = state.balance;
+  state.balance += amount;
+  animateNum(document.getElementById('pool-balance'), prev, state.balance);
+  closeSheet('deposit');
+  document.getElementById('deposit-amount').value = '';
+  document.getElementById('deposit-note').value = '';
+  showToast(`✅ ${state.user.name} 儲值 $${amount.toLocaleString()} 成功！`);
+  refreshLedger();
+}
+
+async function handleExpense() {
+  const title = document.getElementById('expense-title').value.trim();
+  const amount = parseFloat(document.getElementById('expense-amount').value);
+  const category = document.getElementById('expense-category').value;
+  if (!title) { showToast('❌ 請填寫品項名稱'); return; }
+  if (!amount || amount <= 0) { showToast('❌ 請輸入有效金額'); return; }
+
+  if (db) {
+    const { error } = await db.from('money_records').insert([{ 
+      type: 'expense', 
+      amount, 
+      note: title, 
+      category: category, 
+      operator_id: state.user.id || state.user.name 
+    }]);
+    if (error) { showToast('❌ 記帳失敗：' + error.message); return; }
+  } else {
+    state.ledger.push({ id: Date.now(), type: 'expense', amount, note: title, category, operator_id: state.user.id, created_at: new Date().toISOString() });
+  }
+
+  const prev = state.balance;
+  state.balance -= amount;
+  animateNum(document.getElementById('pool-balance'), prev, state.balance);
+  closeSheet('expense');
+  document.getElementById('expense-title').value = '';
+  document.getElementById('expense-amount').value = '';
+  showToast(`✅ 已扣款 $${amount.toLocaleString()}（${title}）`);
+  refreshLedger();
+}
+
+async function handleElectricity() {
+  const checkedBoxes = document.querySelectorAll('input[name="elec-months"]:checked');
+  const selectedMonths = Array.from(checkedBoxes).map(cb => cb.value);
+  const total = parseFloat(document.getElementById('elec-total').value);
+  
+  if (selectedMonths.length === 0 || !total) { 
+    showToast('❌ 請勾選月份與輸入總金額'); 
+    return; 
+  }
+
+  const days = state.members.map(m => m.present_days ?? 0);
+  const sumDays = days.reduce((sum, d) => sum + d, 0);
+  if (sumDays === 0) { 
+    showToast('❌ 總居住天數不能為零'); 
+    return; 
+  }
+
+  let results = [0, 0, 0];
+  if (state.elecMode === 'equal') {
+    const each = Math.round(total / 3);
+    results = [each, each, total - each * 2];
+  } else {
+    results[0] = Math.round(total * (days[0] / sumDays));
+    results[1] = Math.round(total * (days[1] / sumDays));
+    results[2] = total - results[0] - results[1];
+  }
+
+  const monthLabels = selectedMonths.map(m => {
+    const monthNum = parseInt(m.split('-')[1], 10);
+    return `${monthNum}月`;
+  }).join('+');
+
+  const names = state.members.map(m => m.display_name || m.id);
+  const note = `⚡ 電費拆帳(${monthLabels})`;
+
+  if (db) {
+    try {
+      const { error } = await db.from('money_records').insert([{ 
+        type: 'expense', 
+        amount: total, 
+        note: note, 
+        category: '當期電費', 
+        operator_id: state.user.id || state.user.name 
+      }]);
+      if (error) { showToast('❌ 記帳失敗：' + error.message); return; }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const billingMonth = getCurrentMonth();
+  for (let i = 0; i < state.members.length; i++) {
+    const mem = state.members[i];
+    const share = results[i];
+    
+    if (!state.rentStatus[mem.id]) state.rentStatus[mem.id] = {};
+    state.rentStatus[mem.id].elec_amount = share;
+    state.rentStatus[mem.id].elec_status = 'unpaid';
+    
+    if (db) {
+      try {
+        await db.from('rent_status').upsert([{ 
+          user_id: mem.id, 
+          billing_month: billingMonth, 
+          elec_amount: share, 
+          elec_status: 'unpaid' 
+        }], { onConflict: 'billing_month,user_id' });
+      } catch(e) {
+        console.error(e);
+      }
+    }
+  }
+
+  const prev = state.balance;
+  state.balance -= total;
+  animateNum(document.getElementById('pool-balance'), prev, state.balance);
+
+  // 嘗試用 LIFF 分享到 LINE
+  try {
+    if (typeof liff !== 'undefined' && liff.isApiAvailable && liff.isApiAvailable('shareTargetPicker')) {
+      await liff.shareTargetPicker([{
+        type: 'text',
+        text: `💡 電費拆帳通知（${monthLabels}）\n\n總金額：$${total.toLocaleString()}\n${names[0]}：$${results[0].toLocaleString()}\n${names[1]}：$${results[1].toLocaleString()}\n${names[2]}：$${results[2].toLocaleString()}\n\n✅ 已同步至小金庫，請至繳費中心結清！`
+      }]);
+    }
+  } catch(e) { console.warn('shareTargetPicker 不可用:', e); }
+
+  closeSheet('electricity');
+  showToast(`✅ 帳單已產生！總金額 $${total.toLocaleString()}`);
+  renderRentList();
+  refreshLedger();
+}
+
+async function handleChore(choreName) {
+  const btn = event.currentTarget;
+  spawnConfetti(btn);
+
+  if (db) {
+    const { error } = await db.from('chores_records').insert([{ chore_type: choreName, user_id: state.user.id || state.user.name }]);
+    if (error) { showToast('❌ 打卡失敗：' + error.message); return; }
+  }
+
+  showToast(`✅ 感謝 ${state.user.name} 幫忙「${choreName}」！辛苦了 🎉`);
+  state.chores = await fetchChores();
+  renderChoreList();
+}
+
+function openWishModal() {
+  Swal.fire({
+    title: '🛒 想要補貨什麼呢？',
+    html: `
+      <div class="text-left space-y-3 px-3">
+        <label class="block text-xs font-bold text-gray-400">物品名稱</label>
+        <input id="swal-wish-name" class="swal2-input !m-0 !w-full" placeholder="例如：舒潔衛生紙、洗面乳">
+        
+        <label class="block text-xs font-bold text-gray-400">主分類</label>
+        <select id="swal-wish-cat" class="swal2-input !m-0 !w-full" onchange="toggleWishTypeHint()">
+          <option value="生活用品" selected>🧴 生活用品</option>
+          <option value="冰箱食材">🥦 冰箱食材</option>
+          <option value="家電電器">⚡ 家電電器</option>
+        </select>
+
+        <div id="wish-sub-type-block">
+          <label class="block text-xs font-bold text-gray-400">用品屬性</label>
+          <div class="flex bg-gray-100 rounded-xl p-1 mt-1">
+            <button id="btn-sub-public" type="button" onclick="setWishSubType('共用')" class="flex-1 py-2 rounded-lg text-xs font-extrabold bg-white text-gray-900 shadow-sm transition-all">👥 公共提議</button>
+            <button id="btn-sub-private" type="button" onclick="setWishSubType('私人')" class="flex-1 py-2 rounded-lg text-xs font-extrabold text-gray-400 transition-all">🔒 私人代購</button>
+          </div>
+          <p id="sub-type-hint" class="text-xxs text-amber-500 mt-1.5 font-medium">⚠️ 提示：公共生活用品需經另外兩位室友全數同意，才會納入公積金採購清單！</p>
+        </div>
+      </div>
+    `,
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: '確定敲碗',
+    cancelButtonText: '取消',
+    confirmButtonColor: '#34D399',
+    didOpen: () => {
+      window._currentWishSubType = '共用';
+      window.setWishSubType = (type) => {
+        window._currentWishSubType = type;
+        const pubBtn = document.getElementById('btn-sub-public');
+        const privBtn = document.getElementById('btn-sub-private');
+        const hint = document.getElementById('sub-type-hint');
+        if (type === '共用') {
+          pubBtn.className = "flex-1 py-2 rounded-lg text-xs font-extrabold bg-white text-gray-900 shadow-sm transition-all";
+          privBtn.className = "flex-1 py-2 rounded-lg text-xs font-extrabold text-gray-400 transition-all";
+          hint.innerText = "⚠️ 提示：公共生活用品需經另外兩位室友全數同意，才會納入公積金採購清單！";
+          hint.className = "text-xxs text-amber-500 mt-1.5 font-medium";
+        } else {
+          privBtn.className = "flex-1 py-2 rounded-lg text-xs font-extrabold bg-white text-gray-900 shadow-sm transition-all";
+          pubBtn.className = "flex-1 py-2 rounded-lg text-xs font-extrabold text-gray-400 transition-all";
+          hint.innerText = "💡 提示：私人物品將標註為代購，買回時不會扣除公共公積金，改由個人向你結帳。";
+          hint.className = "text-xxs text-blue-500 mt-1.5 font-medium";
         }
+      };
+      window.toggleWishTypeHint = () => {
+        const cat = document.getElementById('swal-wish-cat').value;
+        document.getElementById('wish-sub-type-block').style.display = (cat === '生活用品') ? 'block' : 'none';
+      };
+    },
+    preConfirm: () => {
+      const name = document.getElementById('swal-wish-name').value.trim();
+      const cat = document.getElementById('swal-wish-cat').value;
+      const subType = (cat === '生活用品') ? window._currentWishSubType : '共用';
+      if (!name) { Swal.showValidationMessage('請輸入物品名稱！'); return false; }
+      return { name, cat, subType };
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      handleAddShoppingItem(result.value.name, result.value.cat, result.value.subType);
+    }
+  });
+}
 
-        // 3. 從 Supabase 撈取真實的公積金餘額與紀錄
-        async function fetchDataFromSupabase() {
-            try {
-                // A. 抓取最近 5 筆支出明細
-                const { data: records, error: err1 } = await _supabase
-                    .from('money_records') // 確保你 Supabase 有建立這個 table
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(5);
+async function handleAddShoppingItem(name, category, subType) {
+  if (db) {
+    const { error } = await db.from('fridge_items').insert([{
+      item_name: name,
+      category: category,
+      sub_type: subType,
+      status: 'pending',
+      buyer_id: state.user.id || state.user.name,
+      approved_by: subType === '共用' && category === '生活用品' ? [] : [state.user.id || state.user.name]
+    }]);
+    if (error) { showToast('❌ 許願失敗：' + error.message); return; }
+  } else {
+    state.fridgeItems.push({ id: Date.now(), item_name: name, category, sub_type: subType, status: 'pending', buyer_id: state.user.id, approved_by: subType === '共用' && category === '生活用品' ? [] : [state.user.id || state.user.name] });
+  }
+  showToast(`💡 成功敲碗「${name}」！`);
+  state.fridgeItems = await fetchFridgeItems();
+  renderFridgeList();
+}
 
-                // B. 計算並渲染總餘額
-                const { data: allTransactions, error: err2 } = await _supabase
-                    .from('money_records')
-                    .select('amount, type');
+async function voteApproveItem(id) {
+  const item = state.fridgeItems.find(i => i.id === id);
+  if (!item) return;
+  const myId = state.user.id || state.user.name;
+  let currentList = item.approved_by || [];
+  if (currentList.includes(myId)) return;
+  currentList.push(myId);
+  if (db) {
+    await db.from('fridge_items').update({ approved_by: currentList }).eq('id', id);
+  }
+  showToast('👍 已送出同意票！');
+  state.fridgeItems = await fetchFridgeItems();
+  renderFridgeList();
+}
 
-                if (!err1 && !err2 && allTransactions) {
-                    let totalBalance = 0;
-                    allTransactions.forEach(tx => {
-                        if (tx.type === 'deposit') totalBalance += tx.amount;
-                        if (tx.type === 'expense') totalBalance -= tx.amount;
-                    });
-                    document.getElementById('pool-balance').innerText = totalBalance.toLocaleString();
-                    renderRecordsList(records);
-                } else {
-                    // 如果沒建立 Table，顯示預設假餘額，排版不崩潰
-                    document.getElementById('pool-balance').innerText = "3,500";
-                    renderRecordsList([]);
-                }
-                
-                // C. 抓取打掃紀錄與房租
-                fetchChores();
-                fetchRentStatus();
-            } catch (e) {
-                console.error("資料庫連線失敗:", e);
-            }
+async function claimShoppingItem(id) {
+  if (db) {
+    await db.from('fridge_items').update({ status: 'buying' }).eq('id', id);
+  } else {
+    const item = state.fridgeItems.find(i => i.id === id);
+    if (item) item.status = 'buying';
+  }
+  state.fridgeItems = await fetchFridgeItems();
+  renderFridgeList();
+}
+
+function openShoppingCheckout(id, name, qty, subType) {
+  Swal.fire({
+    title: subType === '私人' ? '🔒 私人代購結帳' : '👌 公共物資報帳',
+    html: `
+      <div class="text-left space-y-3 px-3 mt-2">
+        <label class="block text-xs font-bold text-gray-400">實際買到的數量</label>
+        <input id="checkout-item-qty" class="swal2-input !m-0 !w-full" value="${qty || '1'}">
+        <label class="block text-xs font-bold text-gray-400 mt-3">花費總金額 ($)</label>
+        <input id="checkout-amount" type="number" class="swal2-input !m-0 !w-full" placeholder="例如：150">
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '確認結帳',
+    cancelButtonText: '取消',
+    confirmButtonColor: '#00A676',
+    preConfirm: () => {
+      const finalQty = document.getElementById('checkout-item-qty').value;
+      const amount = parseFloat(document.getElementById('checkout-amount').value) || 0;
+      if (amount <= 0) { Swal.showValidationMessage('請輸入正確的花費金額'); return false; }
+      return { finalQty, amount };
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      const { finalQty, amount } = result.value;
+      const targetItem = state.fridgeItems.find(i => i.id == id);
+      const isPrivate = targetItem && targetItem.sub_type === '私人';
+
+      if (db) {
+        if (!isPrivate) {
+           await db.from('money_records').insert([{ type: 'expense', amount: amount, note: `🛒 採購物資: ${name}`, category: targetItem?.category || '生活用品', operator_id: state.user.id || state.user.name }]);
         }
+        await db.from('fridge_items').update({ status: 'bought', quantity: finalQty, expiry_date: new Date(Date.now()+86400000*30).toISOString().split('T')[0] }).eq('id', id);
+      } else {
+        if (targetItem) {
+          targetItem.status = 'bought';
+          targetItem.quantity = finalQty;
+        }
+        if (!isPrivate) {
+           state.ledger.push({ id: Date.now(), type: 'expense', amount: amount, note: `🛒 採購物資: ${name}`, category: targetItem?.category || '生活用品', operator_id: state.user.id || state.user.name, created_at: new Date().toISOString() });
+        }
+      }
 
-        // 4. 動態渲染支出紀錄列表（在手機上對齊不跑版）
-        function renderRecordsList(records) {
-            const container = document.getElementById('records-list');
-            if (!records || records.length === 0) {
-                container.innerHTML = `
-                    <div class="bg-white p-4 rounded-xl flex items-center justify-between border border-slate-100 shadow-sm">
-                        <div>
-                            <p class="text-sm font-semibold text-slate-800">💡 尚未有任何紀錄</p>
-                            <p class="text-xs text-slate-400">趕快點選上方按鈕新增第一筆帳目吧！</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
+      if (isPrivate) {
+        showToast(`🔒 私人代購「${name}」已買齊！此筆不扣公積金，記得私下收 $${amount}！`);
+      } else {
+        showToast(`🎉 「${name}」已買齊！並從小金庫自動扣除 $${amount}`);
+      }
+      
+      state.fridgeItems = await fetchFridgeItems();
+      state.ledger = await fetchLedger();
+      state.balance = await fetchBalance();
+      renderLedger();
+      renderBalance();
+      renderFridgeList();
+    }
+  });
+}
 
-            container.innerHTML = records.map(r => `
-                <div class="bg-white p-4 rounded-xl flex items-center justify-between border border-slate-100 shadow-sm">
-                    <div>
-                        <p class="text-sm font-bold text-slate-800">${r.note || '未命名支出'}</p>
-                        <p class="text-xs text-slate-400 mt-0.5">經手人: ${r.operator}</p>
-                    </div>
-                    <span class="text-sm font-extrabold ${r.type === 'deposit' ? 'text-emerald-600' : 'text-rose-500'}">
-                        ${r.type === 'deposit' ? '+' : '-'}$${r.amount}
-                    </span>
+async function handleDeleteFridgeItem(id) {
+  if (db) { await db.from('fridge_items').delete().eq('id', id); }
+  state.fridgeItems = state.fridgeItems.filter(f => f.id !== id);
+  renderFridgeList();
+  showToast('🗑️ 已移除');
+}
+
+async function updateRent(userId, newStatus) {
+  const month = getCurrentMonth();
+  if (db) {
+    const { error } = await db.from('rent_status').upsert([{ user_id: userId, billing_month: month, status: newStatus }], { onConflict: 'billing_month,user_id' });
+    if (error) { showToast('❌ 更新失敗'); return; }
+  }
+  if (!state.rentStatus[userId]) state.rentStatus[userId] = { status: 'unpaid' };
+  state.rentStatus[userId].status = newStatus;
+  renderRentList();
+  if (newStatus === 'confirmed') showToast('🎉 已確認入帳！房租已繳清。');
+}
+
+function openEditRent(userId) {
+  const mem = state.members.find(m => m.id === userId) || MEMBERS_CONFIG.find(m => m.id === userId);
+  const totalExpected = state.rentStatus[userId]?.total_expected || mem?.rent_amount || mem?.rentAmount || 8000;
+  document.getElementById('edit-rent-userid').value = userId;
+  document.getElementById('edit-rent-amount').value = totalExpected;
+  openSheet('edit-rent');
+}
+
+async function submitEditRent() {
+  const userId = document.getElementById('edit-rent-userid').value;
+  const newAmount = parseInt(document.getElementById('edit-rent-amount').value, 10);
+  if (isNaN(newAmount) || newAmount <= 0) return showToast('❌ 請輸入有效金額');
+  
+  const month = getCurrentMonth();
+  if (db) {
+    const currentStatus = state.rentStatus[userId]?.status || 'unpaid';
+    const { error } = await db.from('rent_status').upsert([{ user_id: userId, billing_month: month, total_expected: newAmount, status: currentStatus }], { onConflict: 'billing_month,user_id' });
+    if (error) return showToast('❌ 更新失敗');
+  }
+  
+  if (!state.rentStatus[userId]) state.rentStatus[userId] = {};
+  state.rentStatus[userId].total_expected = newAmount;
+  renderRentList();
+  closeSheet('edit-rent');
+  showToast('✅ 已更新本月應繳底薪');
+}
+
+function openPayRent(userId) {
+  const mem = state.members.find(m => m.id === userId) || MEMBERS_CONFIG.find(m => m.id === userId);
+  const totalExpected = state.rentStatus[userId]?.total_expected || mem?.rent_amount || mem?.rentAmount || 8000;
+  const paidAmount = state.rentPayments.filter(p => p.user_id === userId).reduce((sum, p) => sum + p.amount_paid, 0);
+  const remaining = Math.max(0, totalExpected - paidAmount);
+  
+  if (remaining === 0) return showToast('✅ 已經完全結清囉！');
+  
+  document.getElementById('pay-rent-userid').value = userId;
+  document.getElementById('pay-rent-amount').value = remaining;
+  openSheet('pay-rent');
+}
+
+async function submitPayRent() {
+  const userId = document.getElementById('pay-rent-userid').value;
+  const amount = parseInt(document.getElementById('pay-rent-amount').value, 10);
+  if (isNaN(amount) || amount <= 0) return showToast('❌ 請輸入有效金額');
+  
+  const month = getCurrentMonth();
+  if (db) {
+    const { error } = await db.from('rent_payments').insert([{ user_id: userId, billing_month: month, amount_paid: amount }]);
+    if (error) return showToast('❌ 繳款失敗');
+  } else {
+    state.rentPayments.push({ user_id: userId, billing_month: month, amount_paid: amount });
+  }
+  
+  if (db) state.rentPayments = await fetchRentPayments(month);
+  
+  const mem = state.members.find(m => m.id === userId) || MEMBERS_CONFIG.find(m => m.id === userId);
+  const totalExpected = state.rentStatus[userId]?.total_expected || mem?.rent_amount || mem?.rentAmount || 8000;
+  const paidAmount = state.rentPayments.filter(p => p.user_id === userId).reduce((sum, p) => sum + p.amount_paid, 0);
+  const remaining = Math.max(0, totalExpected - paidAmount);
+  
+  if (remaining === 0 && state.rentStatus[userId]?.status !== 'confirmed') {
+    if (db) {
+      await db.from('rent_status').upsert([{ user_id: userId, billing_month: month, status: 'paid' }], { onConflict: 'billing_month,user_id' });
+    }
+    if (!state.rentStatus[userId]) state.rentStatus[userId] = {};
+    state.rentStatus[userId].status = 'paid';
+  }
+  
+  renderRentList();
+  closeSheet('pay-rent');
+  showToast(`✅ 已繳納 $${amount.toLocaleString()}！`);
+}
+
+async function deleteRecord(id, operatorId) {
+  if (operatorId !== state.user.id && operatorId !== state.user.name) {
+    showToast('❌ 只有記帳本人才能刪除此筆帳目');
+    return;
+  }
+  if (db) {
+    const { error } = await db.from('money_records').delete().eq('id', id);
+    if (error) { showToast('❌ 刪除失敗'); return; }
+  }
+  showToast('🗑️ 已刪除帳目');
+  state.ledger = await fetchLedger();
+  state.balance = await fetchBalance();
+  renderLedger();
+  document.getElementById('pool-balance').textContent = state.balance.toLocaleString();
+}
+
+async function refreshLedger() {
+  state.ledger = await fetchLedger();
+  state.balance = await fetchBalance();
+  renderLedger();
+}
+
+// ─── CHORES & DAYS LOGIC ─────────────────────
+async function changeDays(userId, delta) {
+  const member = state.members.find(m => m.id === userId);
+  if (!member) return;
+  let newDays = (member.present_days ?? 60) + delta;
+  if (newDays < 0) newDays = 0;
+  if (newDays > 60) newDays = 60;
+  
+  member.present_days = newDays; // 樂觀更新
+  renderDaysProgress();
+  
+  // 更新電費顯示
+  const idx = state.members.findIndex(m => m.id === userId);
+  const elecDaySpan = document.getElementById('elec-day-' + idx);
+  if (elecDaySpan) elecDaySpan.textContent = newDays;
+  calcElectricity();
+
+  if (db) {
+    await db.from('users').update({ present_days: newDays }).eq('id', userId);
+  }
+}
+
+async function toggleDutyTask(taskKey) {
+  if (!state.choresSchedule) return;
+  const checkbox = document.getElementById(taskKey);
+  const isChecked = checkbox.checked;
+  const choreNameMap = { task_garbage: '倒垃圾', task_floor: '掃拖地', task_toilet: '刷廁所' };
+  
+  if (db && state.choresSchedule.id) {
+    await db.from('chores_schedule').update({ [taskKey]: isChecked }).eq('id', state.choresSchedule.id);
+  }
+  
+  if (isChecked) {
+    checkbox.nextElementSibling.classList.add('line-through', 'text-gray-400');
+    showToast(`✅ 完成 ${choreNameMap[taskKey]}！`);
+    try {
+      if (typeof liff !== 'undefined' && liff.isApiAvailable && liff.isApiAvailable('shareTargetPicker')) {
+        await liff.shareTargetPicker([{
+          type: 'text',
+          text: `🎉 ${state.user.name} 已完成本週的『${choreNameMap[taskKey]}』任務！環境變得超乾淨！`
+        }]);
+      }
+    } catch(e) { console.warn('shareTargetPicker:', e); }
+  } else {
+    checkbox.nextElementSibling.classList.remove('line-through', 'text-gray-400');
+  }
+}
+
+async function nextDutyOfficer() {
+  if (!state.choresSchedule?.id || !state.members.length) return;
+  const sorted = [...state.members].sort((a,b)=>(a.duty_order)-(b.duty_order));
+  const currentIndex = sorted.findIndex(m => m.id === state.choresSchedule.current_user_id);
+  const nextMember = sorted[(currentIndex + 1) % sorted.length];
+  
+  if (db) {
+    await db.from('chores_schedule').update({ current_user_id: nextMember.id, task_garbage: false, task_floor: false, task_toilet: false }).eq('id', state.choresSchedule.id);
+  }
+  state.choresSchedule.current_user_id = nextMember.id;
+  state.choresSchedule.task_garbage = false;
+  state.choresSchedule.task_floor = false;
+  state.choresSchedule.task_toilet = false;
+  renderDutyOfficer();
+  showToast(`🪖 值日生已切換為 ${nextMember.display_name}`);
+}
+
+// ═══════════════════════════════════════════════
+// RENDER FUNCTIONS
+// ═══════════════════════════════════════════════
+
+function renderBalance() {
+  document.getElementById('pool-balance').textContent = state.balance.toLocaleString();
+}
+
+function renderMemberAvatars() {
+  for (let i = 0; i < 3; i++) {
+    const m = state.members[i];
+    if (!m) continue;
+    const avatarUrl = m.avatar_url;
+    // 錢包上的頭貼
+    const walletAv = document.getElementById('member-avatar-' + i);
+    if (walletAv && avatarUrl) walletAv.src = avatarUrl;
+    // 電費拆帳的頭貼與名字
+    const elecAv = document.getElementById('elec-avatar-' + i);
+    if (elecAv && avatarUrl) elecAv.src = avatarUrl;
+    const elecName = document.getElementById('elec-name-' + i);
+    if (elecName) elecName.textContent = m.display_name || MEMBERS_CONFIG[i]?.name || `室友 ${i}`;
+    // 電費天數
+    const elecDay = document.getElementById('elec-day-' + i);
+    if (elecDay) elecDay.textContent = m.present_days ?? 60;
+  }
+}
+
+function renderDaysProgress() {
+  const list = document.getElementById('days-progress-list');
+  if (!list) return;
+  if (!state.members.length) return;
+  
+  list.innerHTML = state.members.map((m) => {
+    const days = m.present_days ?? 60;
+    const percent = Math.min(100, Math.max(0, (days / 60) * 100));
+    return `
+      <div class="flex items-center gap-3">
+        <img src="${m.avatar_url || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23ccc%22%3E%3Cpath d=%22M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z%22/%3E%3C/svg%3E'}" class="w-8 h-8 rounded-full object-cover shadow-sm bg-gray-200">
+        <div class="flex-1">
+          <div class="flex justify-between items-end mb-1">
+            <span class="text-[11px] font-extrabold text-gray-700">${m.display_name}</span>
+            <span class="text-[10px] font-bold text-gray-400"><span class="text-sm font-extrabold text-[#00A676]">${days}</span> 天</span>
+          </div>
+          <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full bg-[#00A676] transition-all duration-500 rounded-full" style="width: ${percent}%"></div>
+          </div>
+        </div>
+        <div class="flex gap-1">
+          <button onclick="changeDays('${m.id}', -1)" class="w-7 h-7 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full font-bold active:scale-90 transition cursor-pointer">−</button>
+          <button onclick="changeDays('${m.id}', 1)" class="w-7 h-7 flex items-center justify-center bg-[#E7F6F1] hover:bg-[#00A676] hover:text-white text-[#00A676] rounded-full font-bold active:scale-90 transition cursor-pointer">+</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderDutyOfficer() {
+  if (!state.choresSchedule || !state.members.length) return;
+  const m = state.members.find(u => u.id === state.choresSchedule.current_user_id);
+  if (!m) return;
+  
+  document.getElementById('duty-name').textContent = m.display_name;
+  const av = document.getElementById('duty-avatar');
+  const ph = document.getElementById('duty-avatar-placeholder');
+  if (m.avatar_url) {
+    av.src = m.avatar_url;
+    av.classList.remove('hidden');
+    ph.classList.add('hidden');
+  } else {
+    av.classList.add('hidden');
+    ph.classList.remove('hidden');
+    ph.textContent = m.display_name.charAt(0);
+  }
+  
+  const tasksDiv = document.getElementById('duty-tasks');
+  const s = state.choresSchedule;
+  const tasks = [
+    { key: 'task_garbage', label: '🗑️ 倒垃圾', checked: s.task_garbage },
+    { key: 'task_floor', label: '🧹 掃拖地', checked: s.task_floor },
+    { key: 'task_toilet', label: '🚽 刷廁所', checked: s.task_toilet },
+  ];
+  
+  tasksDiv.innerHTML = tasks.map(t => `
+    <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition cursor-pointer group">
+      <input type="checkbox" id="${t.key}" onchange="toggleDutyTask('${t.key}')" ${t.checked ? 'checked' : ''} class="w-5 h-5 accent-[#00A676] cursor-pointer">
+      <span class="text-sm font-bold text-gray-700 group-hover:text-gray-900 transition task-text ${t.checked ? 'line-through text-gray-400' : ''}">${t.label}</span>
+    </label>
+  `).join('');
+}
+
+function renderLedger() {
+  const list = document.getElementById('ledger-list');
+  if (!state.ledger.length) {
+    list.innerHTML = '<div class="text-center text-gray-400 text-xs py-6"><span class="text-2xl block mb-2">📭</span>還沒有任何紀錄</div>';
+    return;
+  }
+  list.innerHTML = state.ledger.map(r => {
+    const isDeposit = r.type === 'deposit';
+    const operatorName = getMemberName(r.operator_id);
+    const operatorAvatar = getMemberAvatar(r.operator_id);
+    
+    const cat = r.category || (isDeposit ? '儲值' : '生活用品');
+    let catBadgeClass = 'text-gray-500 bg-gray-100';
+    let catEmoji = '📦';
+
+    if (cat === '生活用品') { catBadgeClass = 'text-blue-600 bg-blue-50'; catEmoji = '🧴'; }
+    else if (cat === '冰箱食材') { catBadgeClass = 'text-emerald-600 bg-emerald-50'; catEmoji = '🥦'; }
+    else if (cat === '家電電器') { catBadgeClass = 'text-purple-600 bg-purple-50'; catEmoji = '🔌'; }
+    else if (cat === '固定房租') { catBadgeClass = 'text-orange-600 bg-orange-50'; catEmoji = '🏠'; }
+    else if (cat === '當期電費') { catBadgeClass = 'text-amber-600 bg-amber-50'; catEmoji = '⚡'; }
+    else if (isDeposit) { catBadgeClass = 'text-teal-600 bg-teal-50'; catEmoji = '💰'; }
+
+    const avatarHtml = operatorAvatar
+      ? `<img src="${operatorAvatar}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0">`
+      : `<div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-extrabold flex-shrink-0 ${isDeposit ? 'bg-[#E7F6F1] text-[#00A676]' : 'bg-red-50 text-red-500'}">${isDeposit ? '存' : '支'}</div>`;
+    
+    const canDelete = (r.operator_id === state.user.id || r.operator_id === state.user.name);
+    const deleteBtn = canDelete ? `<button onclick="deleteRecord(${r.id},'${r.operator_id}')" class="ml-2 text-gray-300 hover:text-red-400 transition text-xs cursor-pointer flex-shrink-0">✕</button>` : '';
+
+    return `
+      <div class="flex items-center gap-3 py-2.5 px-1 hover:bg-gray-50 rounded-xl transition-colors group">
+        ${avatarHtml}
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold text-gray-800 truncate flex items-center gap-1.5">
+            <span>${r.note || '未命名'}</span>
+            <span class="text-[9px] font-bold ${catBadgeClass} px-1.5 py-0.5 rounded flex items-center gap-0.5">${catEmoji} ${cat}</span>
+          </p>
+          <p class="text-[11px] text-gray-400 mt-0.5">${operatorName}・${fmtDate(r.created_at)}</p>
+        </div>
+        <span class="text-sm font-extrabold whitespace-nowrap ${isDeposit ? 'text-[#00A676]' : 'text-red-500'}" style="font-family:'Inter',sans-serif">${isDeposit ? '+' : '-'}$${Number(r.amount).toLocaleString()}</span>
+        ${deleteBtn}
+      </div>`;
+  }).join('');
+}
+
+function renderRentList() {
+  const today = new Date();
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  if (document.getElementById('next-month-badge')) {
+    document.getElementById('next-month-badge').innerText = `📅 提醒：1號前預繳 ${nextMonth.getMonth() + 1} 月房租`;
+  }
+
+  const month = getCurrentMonth();
+  const isAdmin = state.members[0]?.id === state.user.id || state.user.id === 'local_tester_001';
+
+  const fixedList = document.getElementById('rent-list-fixed');
+  const utilityList = document.getElementById('rent-list-utility');
+  if (!fixedList || !utilityList) return;
+
+  // 1. Render Fixed Rent List
+  fixedList.innerHTML = MEMBERS_CONFIG.map((mem, idx) => {
+    const rentData = state.rentStatus[mem.id] || {};
+    const memberData = state.members.find(u => u.id === mem.id) || state.members[idx];
+    const rentExpected = rentData.total_expected || memberData?.rent_amount || mem.rentAmount || 8000;
+    const rentStatus = rentData.status || 'unpaid';
+
+    const displayName = memberData?.display_name || mem.name;
+    const avatarUrl = memberData?.avatar_url;
+
+    const avatarHtml = avatarUrl
+      ? `<img src="${avatarUrl}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0">`
+      : `<div class="w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-xs flex-shrink-0 bg-gray-50 text-gray-500">${mem.id}</div>`;
+
+    const editIconHtml = isAdmin ? `<button onclick="openEditRent('${mem.id}')" class="ml-1 text-gray-300 hover:text-[#00A676] transition cursor-pointer active:scale-90 inline-block">✏️</button>` : '';
+
+    return `
+      <div class="flex items-center justify-between p-3 rounded-2xl border ${rentStatus === 'confirmed' ? 'border-[#00A676]/20 bg-[#00A676]/[0.02]' : 'border-red-100 bg-red-50/20'} transition-colors">
+        <div class="flex items-center gap-2.5 min-w-0">
+          ${avatarHtml}
+          <div class="min-w-0">
+            <p class="text-xs font-extrabold text-gray-800 flex items-center">${displayName} ${editIconHtml}</p>
+            <p class="text-[10px] text-gray-400 mt-0.5">金額: $${rentExpected.toLocaleString()}</p>
+          </div>
+        </div>
+        <div>
+          ${rentStatus === 'confirmed' 
+            ? `<span class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-2.5 py-1.5 rounded-full flex items-center gap-0.5">已結清 ✅</span>` 
+            : `<button onclick="payFixedRent('${mem.id}', ${rentExpected})" class="text-[11px] font-black text-white bg-[#00A676] hover:bg-[#009268] px-3 py-1.5 rounded-full shadow-sm shadow-[#00A676]/15 active:scale-95 transition-all cursor-pointer flex items-center gap-1">🟢 繳房租</button>`
+          }
+        </div>
+      </div>`;
+  }).join('');
+
+  // 2. Render Current Utility List
+  utilityList.innerHTML = MEMBERS_CONFIG.map((mem, idx) => {
+    const rentData = state.rentStatus[mem.id] || {};
+    const memberData = state.members.find(u => u.id === mem.id) || state.members[idx];
+    const elecAmount = rentData.elec_amount || 0;
+    const elecStatus = rentData.elec_status || 'unpaid';
+
+    const displayName = memberData?.display_name || mem.name;
+    const avatarUrl = memberData?.avatar_url;
+
+    const avatarHtml = avatarUrl
+      ? `<img src="${avatarUrl}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0">`
+      : `<div class="w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-xs flex-shrink-0 bg-gray-50 text-gray-500">${mem.id}</div>`;
+
+    return `
+      <div class="flex items-center justify-between p-3 rounded-2xl border ${elecAmount === 0 || elecStatus === 'confirmed' ? 'border-[#00A676]/20 bg-[#00A676]/[0.02]' : 'border-red-100 bg-red-50/20'} transition-colors">
+        <div class="flex items-center gap-2.5 min-w-0">
+          ${avatarHtml}
+          <div class="min-w-0">
+            <p class="text-xs font-extrabold text-gray-800 flex items-center">${displayName}</p>
+            <p class="text-[10px] text-gray-400 mt-0.5">金額: $${elecAmount.toLocaleString()}</p>
+          </div>
+        </div>
+        <div>
+          ${elecAmount === 0
+            ? `<span class="text-[11px] font-bold text-gray-400 bg-gray-100 px-2.5 py-1.5 rounded-full">暫無帳單</span>`
+            : elecStatus === 'confirmed'
+              ? `<span class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-2.5 py-1.5 rounded-full flex items-center gap-0.5">已結清 ✅</span>`
+              : `<button onclick="payElectricity('${mem.id}', ${elecAmount})" class="text-[11px] font-black text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-full shadow-sm shadow-blue-600/15 active:scale-95 transition-all cursor-pointer flex items-center gap-1">🔌 繳水電</button>`
+          }
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderChoreList() {
+  const list = document.getElementById('chore-list');
+  const now = new Date();
+  const weekAgo = new Date(now - 7 * 86400000);
+  const weeklyChores = state.chores.filter(c => new Date(c.created_at) >= weekAgo);
+  document.getElementById('weekly-chore-count').textContent = `本週 ${weeklyChores.length} 次`;
+
+  // 本週家務國王
+  const kingBar = document.getElementById('chore-king-bar');
+  if (weeklyChores.length > 0) {
+    const countMap = {};
+    weeklyChores.forEach(c => { countMap[c.user_id] = (countMap[c.user_id]||0) + 1; });
+    const kingId = Object.entries(countMap).sort((a,b) => b[1]-a[1])[0][0];
+    const kingName = getMemberName(kingId);
+    const kingAvatar = getMemberAvatar(kingId);
+    document.getElementById('chore-king-name').textContent = kingName + ` (${countMap[kingId]} 次)`;
+    kingBar.classList.remove('hidden');
+    kingBar.classList.add('flex');
+    const kingAv = document.getElementById('chore-king-avatar');
+    if (kingAvatar) { kingAv.src = kingAvatar; kingAv.classList.remove('hidden'); }
+  } else {
+    kingBar.classList.add('hidden');
+  }
+
+  if (!state.chores.length) {
+    list.innerHTML = '<div class="text-center text-gray-400 text-xs py-4">還沒有人打卡，趕快去幫忙吧！</div>';
+    return;
+  }
+  list.innerHTML = state.chores.map(c => {
+    let emoji = '✨';
+    if (c.chore_type.includes('垃圾')) emoji = '🗑️';
+    if (c.chore_type.includes('掃') || c.chore_type.includes('拖')) emoji = '🧹';
+    if (c.chore_type.includes('廁')) emoji = '🚽';
+    const name = getMemberName(c.user_id);
+    const avatar = getMemberAvatar(c.user_id);
+    const avHtml = avatar
+      ? `<img src="${avatar}" class="w-8 h-8 rounded-lg object-cover flex-shrink-0">`
+      : `<div class="w-8 h-8 rounded-lg bg-[#E7F6F1] flex items-center justify-center text-sm">${emoji}</div>`;
+
+    return `
+      <div class="flex items-center gap-3 py-2 px-1">
+        ${avHtml}
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-bold text-gray-700">${c.chore_type}</p>
+          <p class="text-[10px] text-gray-400">${name}・${fmtDate(c.created_at)}</p>
+        </div>
+        <span class="text-[11px] font-bold text-[#00A676] bg-[#E7F6F1] px-2 py-1 rounded-lg">完成 🎉</span>
+      </div>`;
+  }).join('');
+}
+
+function renderFridgeList() {
+  const shoppingListEl = document.getElementById('shoppingListItems');
+  const fridgeListEl = document.getElementById('fridgeItems');
+  if (!shoppingListEl || !fridgeListEl) return;
+
+  const shoppingItems = state.fridgeItems.filter(i => i.status === 'pending' || i.status === 'buying');
+  
+  if (shoppingItems.length === 0) {
+    shoppingListEl.innerHTML = `<div class="text-center py-6 text-gray-400 text-sm">🙌 完美！目前沒有待補物資</div>`;
+  } else {
+    const categories = ['生活用品', '冰箱食材', '家電電器'];
+    let htmlContent = '';
+
+    categories.forEach(cat => {
+      const catItems = shoppingItems.filter(i => (i.category || '冰箱食材') === cat);
+      if (catItems.length > 0) {
+        htmlContent += `<div class="text-xs font-bold text-gray-500 mt-4 mb-2 px-2 border-l-4 border-emerald-400">${cat} (${catItems.length})</div>`;
+        
+        catItems.forEach(item => {
+          const isBuying = item.status === 'buying';
+          const isPublicChore = item.category === '生活用品' && item.sub_type === '共用';
+          const approvedList = item.approved_by || [];
+          const hasApproved = approvedList.includes(state.user.id || state.user.name);
+          
+          const approveCount = approvedList.filter(id => id !== item.buyer_id).length;
+          const isUnlocked = !isPublicChore || approveCount >= 2;
+
+          let actionBtn = '';
+          if (isPublicChore && !isUnlocked) {
+            actionBtn = `
+              <button onclick="voteApproveItem(${item.id})" ${hasApproved ? 'disabled' : ''} class="px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm ${hasApproved ? 'bg-gray-200 text-gray-400' : 'bg-emerald-500 text-white active:scale-95 transition cursor-pointer'}">
+                ${hasApproved ? `已同意 (${approveCount}/2)` : `👍 同意 (${approveCount}/2)`}
+              </button>
+            `;
+          } else {
+            actionBtn = isBuying 
+              ? `<button onclick="openShoppingCheckout(${item.id},'${item.item_name}','${item.quantity || '1'}','${item.sub_type}')" class="text-xs font-bold text-white bg-[#00A676] px-3 py-1.5 rounded-full shadow-sm active:scale-95 transition cursor-pointer">👌 買齊報帳</button>`
+              : `<button onclick="claimShoppingItem(${item.id})" class="text-xs font-bold text-white bg-amber-500 px-3 py-1.5 rounded-full shadow-sm active:scale-95 transition cursor-pointer">🙋 我來買</button>`;
+          }
+
+          const buyerName = getMemberName(item.buyer_id);
+          const typeTag = item.category === '生活用品' 
+            ? (item.sub_type === '私人' ? `<span class="text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded ml-1">私人代購 🔒</span>` : `<span class="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-1">公共物資 👥</span>`)
+            : '';
+
+          htmlContent += `
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-2 border border-gray-100">
+              <div class="flex items-center space-x-3">
+                <span class="text-lg">${cat === '生活用品' ? '🧴' : cat === '家電電器' ? '⚡' : '🥦'}</span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-extrabold text-gray-800 flex items-center flex-wrap gap-1">${item.item_name} ${typeTag}</p>
+                  <p class="text-[11px] text-gray-400 mt-0.5 truncate">由 ${buyerName} 提議・${isPublicChore && !isUnlocked ? '❌ 審核中(不可採購)' : '🟢 開放採購'}</p>
                 </div>
-            `).join('');
+              </div>
+              <div class="flex space-x-2 flex-shrink-0">
+                ${actionBtn}
+                <button onclick="handleDeleteFridgeItem(${item.id})" class="text-gray-300 hover:text-red-400 p-1 text-xs cursor-pointer">移除</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+    });
+    shoppingListEl.innerHTML = htmlContent;
+  }
+
+  const fridgeItems = state.fridgeItems.filter(i => i.status === 'bought' || !i.status);
+  if (fridgeItems.length === 0) {
+    fridgeListEl.innerHTML = `<div class="text-center py-6 text-gray-400 text-sm">🫙 冰箱空空如也，快去採購！</div>`;
+  } else {
+    fridgeListEl.innerHTML = fridgeItems.map(item => `
+      <div class="flex items-center justify-between p-3 bg-emerald-50/50 rounded-xl border border-emerald-100/60 mb-2">
+        <div class="flex items-center space-x-3">
+          <span class="text-xl">🥫</span>
+          <div class="flex-1 min-w-0">
+            <span class="font-semibold text-gray-800 truncate block">${item.item_name}</span>
+            <div class="text-xxs text-gray-400">分類: ${item.category || '冰箱食材'}</div>
+          </div>
+        </div>
+        <div class="flex items-center space-x-3 flex-shrink-0">
+          <span class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-medium">新鮮 🟢</span>
+          <button onclick="handleDeleteFridgeItem(${item.id})" class="text-gray-300 hover:text-red-400 text-xs cursor-pointer">移除</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// REALTIME SUBSCRIPTIONS
+// ═══════════════════════════════════════════════
+function subscribeRealtime() {
+  if (!db) return;
+  db.channel('money-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'money_records' }, async () => {
+    const prev = state.balance;
+    state.balance = await fetchBalance();
+    animateNum(document.getElementById('pool-balance'), prev, state.balance);
+    state.ledger = await fetchLedger();
+    renderLedger();
+  }).subscribe();
+
+  db.channel('rent-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'rent_status' }, async () => {
+    state.rentStatus = await fetchRentStatus(getCurrentMonth());
+    if (typeof syncMembersAwayDays === 'function') syncMembersAwayDays();
+    renderRentList();
+    if (document.getElementById('sheet-electricity').classList.contains('open')) {
+      if (typeof handleMonthsChange === 'function') handleMonthsChange();
+    }
+  }).subscribe();
+
+  db.channel('rent-payments-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'rent_payments' }, async () => {
+    state.rentPayments = await fetchRentPayments(getCurrentMonth());
+    renderRentList();
+  }).subscribe();
+
+  db.channel('chore-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'chores_records' }, async () => {
+    state.chores = await fetchChores();
+    renderChoreList();
+  }).subscribe();
+
+  db.channel('fridge-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'fridge_items' }, async () => {
+    state.fridgeItems = await fetchFridgeItems();
+    renderFridgeList();
+  }).subscribe();
+
+  db.channel('users-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
+    state.members = await fetchMembers();
+    if (typeof syncMembersAwayDays === 'function') syncMembersAwayDays();
+    renderDaysProgress();
+    renderMemberAvatars();
+    if (document.getElementById('sheet-electricity').classList.contains('open')) {
+      if (typeof handleMonthsChange === 'function') handleMonthsChange();
+    }
+  }).subscribe();
+
+  db.channel('schedule-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'chores_schedule' }, async () => {
+    state.choresSchedule = await fetchChoresSchedule();
+    renderDutyOfficer();
+  }).subscribe();
+}
+
+// ═══════════════════════════════════════════════
+// INITIALIZATION
+// ═══════════════════════════════════════════════
+async function initApp() {
+  const loadingEl = document.getElementById('loading-screen');
+
+  // 1. Init Supabase
+  try {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  } catch(e) {
+    console.warn('Supabase init failed, using demo mode:', e);
+    db = null;
+  }
+
+  // 2. Init LINE LIFF (Auto-detect local environment or timeout)
+  try {
+    if (location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      throw new Error('偵測到本機環境，跳過 LINE LIFF');
+    }
+    
+    await Promise.race([
+      liff.init({ liffId: LIFF_ID }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('LIFF 連線逾時')), 3000))
+    ]);
+    
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+
+    const profile = await liff.getProfile();
+    state.user.id = profile.userId;
+    state.user.name = profile.displayName;
+    state.user.avatar = profile.pictureUrl;
+
+    document.getElementById('user-name').textContent = profile.displayName;
+    if (profile.pictureUrl) document.getElementById('user-avatar').src = profile.pictureUrl;
+
+    // Upsert user into Supabase users table
+    if (db) {
+      await db.from('users').upsert([{
+        id: profile.userId,
+        display_name: profile.displayName,
+        avatar_url: profile.pictureUrl || null,
+      }], { onConflict: 'id' });
+    }
+  } catch(e) {
+    console.warn('LIFF 初始化跳過或失敗，啟用本機測試模式:', e.message);
+    state.user.id = 'local_tester_001';
+    state.user.name = '本機測試員';
+    state.user.avatar = 'https://ui-avatars.com/api/?name=Test&background=00A676&color=fff';
+    document.getElementById('user-name').textContent = state.user.name;
+    document.getElementById('user-avatar').src = state.user.avatar;
+  }
+
+  // 3. Fetch all data in parallel
+  const month = getCurrentMonth();
+  const [members, balance, ledger, rentStatus, rentPayments, chores, fridgeItems, choresSchedule] = await Promise.all([
+    fetchMembers(),
+    fetchBalance(),
+    fetchLedger(),
+    fetchRentStatus(month),
+    fetchRentPayments(month),
+    fetchChores(),
+    fetchFridgeItems(),
+    fetchChoresSchedule(),
+  ]);
+
+  state.members = members;
+  state.balance = balance;
+  state.ledger = ledger;
+  state.rentStatus = rentStatus;
+  state.rentPayments = rentPayments;
+  state.chores = chores;
+  state.fridgeItems = fridgeItems;
+  state.choresSchedule = choresSchedule;
+  
+  if (typeof syncMembersAwayDays === 'function') syncMembersAwayDays();
+
+  // 4. Render everything
+  renderBalance();
+  renderMemberAvatars();
+  renderDaysProgress();
+  renderDutyOfficer();
+  renderLedger();
+  renderRentList();
+  renderChoreList();
+  renderFridgeList();
+  if (typeof fetchAndRenderOtherTab === 'function') fetchAndRenderOtherTab();
+
+  // 5. Subscribe to realtime
+  subscribeRealtime();
+
+  // 🏁 終極防卡死：強制把圈圈完全關掉，讓畫面漂亮跳出來！
+  if (loadingEl) {
+    loadingEl.style.opacity = '0';
+    setTimeout(() => {
+      loadingEl.style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+    }, 300);
+  }
+}
+
+// Error handlers
+window.addEventListener('error', e => {
+  const l = document.getElementById('loading-screen');
+  if (l) l.innerHTML = `<div class="px-6 text-center"><div class="text-4xl mb-3">😵</div><p class="font-bold text-red-500">啟動失敗</p><p class="text-xs text-gray-400 mt-2 break-all">${e.message}</p><button onclick="location.reload()" class="mt-4 px-6 py-2.5 bg-[#00A676] text-white rounded-full font-bold text-sm cursor-pointer">重新載入</button></div>`;
+});
+
+// Start!
+window.addEventListener('DOMContentLoaded', () => {
+  initApp().catch(err => {
+    console.error('App 啟動失敗:', err);
+    document.getElementById('loading-screen').innerHTML =
+      `<div class="px-6 text-center"><div class="text-4xl mb-3">😵</div><p class="font-bold text-red-500">啟動失敗</p><p class="text-xs text-gray-400 mt-2">${err.message}</p><button onclick="location.reload()" class="mt-4 px-6 py-2.5 bg-[#00A676] text-white rounded-full font-bold text-sm cursor-pointer">重新載入</button></div>`;
+  });
+});
+function getDaysInSelectedMonth() {
+  const periodVal = document.getElementById('elec-period').value;
+  if (!periodVal) {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  }
+  const parts = periodVal.split('-');
+  return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10), 0).getDate();
+}
+
+function handleMonthChange() {
+  const totalDays = getDaysInSelectedMonth();
+  state.members.forEach((m, idx) => {
+    m.present_days = Math.max(0, totalDays - (m.away_days ?? 0));
+    const elecDaySpan = document.getElementById('elec-day-' + idx);
+    if (elecDaySpan) elecDaySpan.textContent = m.present_days;
+  });
+  renderDaysModifierInElectricityModal();
+  calcElectricity();
+}
+
+function renderDaysModifierInElectricityModal() {
+  const container = document.getElementById('days-modifier-container');
+  if (!container) return;
+  
+  const totalDays = getDaysInSelectedMonth();
+  const titleEl = document.getElementById('days-modifier-title');
+  if (titleEl) {
+    titleEl.textContent = `📅 1. 確認本期扣除天數 (當月共 ${totalDays} 天)`;
+  }
+  
+  const isEqual = state.elecMode === 'equal';
+  container.innerHTML = state.members.map(m => {
+    const awayDays = m.away_days ?? 0;
+    const presentDays = Math.max(0, totalDays - awayDays);
+    return `
+      <div class="flex flex-col bg-white p-3 rounded-xl border border-gray-100 shadow-sm ${isEqual ? 'opacity-50' : ''}">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#00A676]"></span>
+            <span class="text-xs font-extrabold text-gray-700">${m.display_name || m.name}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] text-gray-400 font-bold">不在屋：</span>
+            <button onclick="${isEqual ? '' : `adjustMemberAwayDays('${m.id}', -1)`}" ${isEqual ? 'disabled' : ''} class="w-6 h-6 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center font-bold text-xs ${isEqual ? '' : 'active:scale-90'}">-</button>
+            <span class="text-xs font-black text-red-500 w-6 text-center">${awayDays} 天</span>
+            <button onclick="${isEqual ? '' : `adjustMemberAwayDays('${m.id}', 1)`}" ${isEqual ? 'disabled' : ''} class="w-6 h-6 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center font-bold text-xs ${isEqual ? '' : 'active:scale-90'}">+</button>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+          <span class="text-[10px] text-gray-400 font-bold">精準在屋天數</span>
+          <span class="text-xs font-extrabold text-gray-700"><span class="text-sm font-extrabold text-[#00A676]">${presentDays}</span> / ${totalDays} 天</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function syncMembersAwayDays() {
+  state.members.forEach(m => {
+    const r = state.rentStatus[m.id];
+    m.away_days = r?.away_days ?? 0;
+  });
+}
+
+function getRolling12Months() {
+  const months = [];
+  const d = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const target = new Date(d.getFullYear(), d.getMonth() - i, 1);
+    const yyyy = target.getFullYear();
+    const mm = String(target.getMonth() + 1).padStart(2, '0');
+    months.push({
+      value: `${yyyy}-${mm}`,
+      label: `${target.getMonth() + 1}月`,
+      year: yyyy
+    });
+  }
+  return months;
+}
+
+function renderMonthCheckboxGrid() {
+  const container = document.getElementById('month-checkbox-grid');
+  if (!container) return;
+  
+  const months = getRolling12Months();
+  container.innerHTML = months.map((m, idx) => {
+    const isChecked = (idx === 9 || idx === 10) ? 'checked' : '';
+    return `
+      <label class="flex items-center justify-center border border-gray-200 rounded-xl py-2 px-1 text-xs font-bold cursor-pointer transition select-none bg-white text-gray-500">
+        <input type="checkbox" name="elec-months" value="${m.value}" ${isChecked} class="hidden" onchange="handleMonthsChange()">
+        ${m.label}
+      </label>
+    `;
+  }).join('');
+}
+
+async function handleMonthsChange() {
+  const checkedBoxes = document.querySelectorAll('input[name="elec-months"]:checked');
+  const selectedMonths = Array.from(checkedBoxes).map(cb => cb.value);
+  
+  if (selectedMonths.length === 0) {
+    const titleEl = document.getElementById('days-modifier-title');
+    if (titleEl) titleEl.textContent = `📅 1. 確認本期扣除天數 (總天數 0 天)`;
+    state.members.forEach((m, idx) => {
+      m.present_days = 0;
+      m.away_days_sum = 0;
+      const elecDaySpan = document.getElementById('elec-day-' + idx);
+      if (elecDaySpan) elecDaySpan.textContent = 0;
+    });
+    renderDaysModifierInElectricityModal(0);
+    calcElectricity();
+    return;
+  }
+  
+  let totalDays = 0;
+  selectedMonths.forEach(m => {
+    const [yyyy, mm] = m.split('-').map(Number);
+    totalDays += new Date(yyyy, mm, 0).getDate();
+  });
+  
+  const awayDaysMap = {};
+  state.members.forEach(m => { awayDaysMap[m.id] = 0; });
+  
+  if (db) {
+    try {
+      const { data } = await db.from('rent_status').select('user_id, away_days').in('billing_month', selectedMonths);
+      if (data) {
+        data.forEach(r => {
+          if (awayDaysMap[r.user_id] !== undefined) {
+            awayDaysMap[r.user_id] += r.away_days || 0;
+          }
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  } else {
+    state.members.forEach(m => {
+      awayDaysMap[m.id] = m.away_days || 0;
+    });
+  }
+  
+  state.members.forEach((m, idx) => {
+    m.away_days_sum = awayDaysMap[m.id] || 0;
+    m.present_days = Math.max(0, totalDays - m.away_days_sum);
+    const elecDaySpan = document.getElementById('elec-day-' + idx);
+    if (elecDaySpan) elecDaySpan.textContent = m.present_days;
+  });
+  
+  renderDaysModifierInElectricityModal(totalDays);
+  calcElectricity();
+}
+
+function renderDaysModifierInElectricityModal(totalDays) {
+  const container = document.getElementById('days-modifier-container');
+  if (!container) return;
+  
+  const titleEl = document.getElementById('days-modifier-title');
+  if (titleEl) {
+    titleEl.textContent = `📅 1. 確認本期扣除天數 (當期共 ${totalDays} 天)`;
+  }
+  
+  const isEqual = state.elecMode === 'equal';
+  container.innerHTML = state.members.map(m => {
+    const awayDaysSum = m.away_days_sum ?? 0;
+    const presentDays = m.present_days ?? 0;
+    return `
+      <div class="flex flex-col bg-white p-3 rounded-xl border border-gray-100 shadow-sm ${isEqual ? 'opacity-50' : ''}">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#00A676]"></span>
+            <span class="text-xs font-extrabold text-gray-700">${m.display_name || m.name}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] text-gray-400 font-bold">不在屋：</span>
+            <button onclick="${isEqual ? '' : `adjustMemberAwayDays('${m.id}', -1)`}" ${isEqual ? 'disabled' : ''} class="w-6 h-6 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center font-bold text-xs ${isEqual ? '' : 'active:scale-90'}">-</button>
+            <span class="text-xs font-black text-red-500 w-6 text-center">${awayDaysSum} 天</span>
+            <button onclick="${isEqual ? '' : `adjustMemberAwayDays('${m.id}', 1)`}" ${isEqual ? 'disabled' : ''} class="w-6 h-6 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center font-bold text-xs ${isEqual ? '' : 'active:scale-90'}">+</button>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+          <span class="text-[10px] text-gray-400 font-bold">精準在屋天數</span>
+          <span class="text-xs font-extrabold text-gray-700"><span class="text-sm font-extrabold text-[#00A676]">${presentDays}</span> / ${totalDays} 天</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function calcElectricity() {
+  const totalInput = document.getElementById('elec-total');
+  const total = parseFloat(totalInput.value) || 0;
+  
+  const days = state.members.map(m => m.present_days ?? 0);
+  const sumDays = days.reduce((sum, d) => sum + d, 0);
+  
+  let results = [0, 0, 0];
+  if (sumDays > 0) {
+    if (state.elecMode === 'equal') {
+      const each = Math.round(total / 3);
+      results = [each, each, total - each * 2];
+    } else {
+      results[0] = Math.round(total * (days[0] / sumDays));
+      results[1] = Math.round(total * (days[1] / sumDays));
+      results[2] = total - results[0] - results[1];
+    }
+  }
+  
+  state.members.forEach((m, idx) => {
+    const resEl = document.getElementById('elec-res-' + idx);
+    if (resEl) {
+      animateNum(resEl, parseInt(resEl.textContent) || 0, results[idx], 200);
+    }
+  });
+}
+
+async function adjustMemberAwayDays(memberId, amount) {
+  const member = state.members.find(m => m.id === memberId);
+  if (!member) return;
+  
+  const currentMonth = getCurrentMonth();
+  const curRentStatus = state.rentStatus[memberId] || {};
+  const curAway = curRentStatus.away_days ?? 0;
+  
+  const next = Math.max(0, curAway + amount);
+  if (curAway === next) return;
+  
+  if (!state.rentStatus[memberId]) state.rentStatus[memberId] = {};
+  state.rentStatus[memberId].away_days = next;
+  
+  syncMembersAwayDays();
+  await handleMonthsChange();
+  
+  if (db) {
+    try {
+      await db.from('rent_status').upsert([{ 
+        user_id: memberId, 
+        billing_month: currentMonth, 
+        away_days: next 
+      }], { onConflict: 'billing_month,user_id' });
+    } catch(e) {
+      console.error(e);
+    }
+  }
+}
+
+function openAwayModal() {
+  const myMember = state.members.find(m => m.id === state.user.id) || state.members[0];
+  const curAway = state.rentStatus[myMember?.id]?.away_days ?? 0;
+  
+  Swal.fire({
+    title: '🧳 報備不在屋',
+    html: `
+      <div class="text-left space-y-4 px-3 py-1">
+        <p class="text-xs text-gray-500 font-medium">請輸入這幾天回家、出去玩不在租屋處的總天數：</p>
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">不在屋天數</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="away-days-input" class="swal2-input !m-0 !w-full !text-base" value="${curAway}" min="0" max="31">
+            <span class="text-sm font-bold text-gray-500 whitespace-nowrap">天</span>
+          </div>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '確認報備',
+    cancelButtonText: '取消',
+    confirmButtonColor: '#00A676',
+    preConfirm: () => {
+      const days = parseInt(document.getElementById('away-days-input').value, 10);
+      if (isNaN(days) || days < 0) {
+        Swal.showValidationMessage('請輸入正確的天數');
+        return false;
+      }
+      return days;
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      const days = result.value;
+      const month = getCurrentMonth();
+      
+      if (!state.rentStatus[myMember.id]) state.rentStatus[myMember.id] = {};
+      state.rentStatus[myMember.id].away_days = days;
+      
+      syncMembersAwayDays();
+      
+      showToast(`🧳 成功登記您不在屋共 ${days} 天！`);
+      
+      if (db) {
+        try {
+          await db.from('rent_status').upsert([{ 
+            user_id: myMember.id, 
+            billing_month: month, 
+            away_days: days 
+          }], { onConflict: 'billing_month,user_id' });
+        } catch(e) {
+          console.error(e);
         }
+      }
+      renderRentList();
+    }
+  });
+}
 
-        // ==================== 動作與事件處理：智慧電費拆帳 ====================
-        async function handleCalculateElectricity() {
-            const period = document.getElementById('elec-period').value;
-            const totalAmount = parseFloat(document.getElementById('elec-total').value);
-            const daysA = parseInt(document.getElementById('days-a').value) || 0;
-            const daysB = parseInt(document.getElementById('days-b').value) || 0;
-            const daysC = parseInt(document.getElementById('days-c').value) || 0;
-
-            if (!period || !totalAmount) {
-                alert("請填寫完整的帳單期別與電費總金額！");
-                return;
-            }
-
-            const totalDays = daysA + daysB + daysC;
-            if (totalDays === 0) {
-                alert("總居住天數不能為 0 天！");
-                return;
-            }
-
-            // 核心數學公式代入（四捨五入至整數）
-            const amtA = Math.round(totalAmount * (daysA / totalDays));
-            const amtB = Math.round(totalAmount * (daysB / totalDays));
-            const amtC = Math.round(totalAmount * (daysC / totalDays));
-
-            // 將拆帳結果寫入紀錄
-            const { error } = await _supabase
-                .from('money_records')
-                .insert([
-                    {
-                        type: 'expense',
-                        amount: totalAmount,
-                        note: `⚡ 電費拆帳(${period}) A:${amtA} B:${amtB} C:${amtC}`,
-                        operator: currentUserName
-                    }
-                ]);
-
-            if (!error) {
-                alert(`🎉 電費公平拆帳成功！\n\n三人人天比例總計：${totalDays} 天\n👤 隊員 A 應繳：$${amtA}\n👤 隊員 B 應繳：$${amtB}\n👤 隊員 C 應繳：$${amtC}\n\n資料已同步發布至小金庫紀錄中！`);
-                closeModal('elec-modal');
-                fetchDataFromSupabase();
-            } else {
-                alert("儲存失敗，請確認你的 Supabase 後台是否有建立對應欄位格。");
-            }
+function payFixedRent(userId, amount) {
+  const displayName = getMemberName(userId);
+  Swal.fire({
+    title: '🏠 繳納固定房租',
+    html: `
+      <div class="text-left space-y-2">
+        <p class="text-xs text-gray-500">請確認匯款金額：</p>
+        <input type="number" id="pay-rent-amount" class="swal2-input !m-0 !w-full" value="${amount}">
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '確認繳款',
+    cancelButtonText: '取消',
+    confirmButtonColor: '#00A676',
+    preConfirm: () => {
+      const val = parseFloat(document.getElementById('pay-rent-amount').value);
+      if (isNaN(val) || val <= 0) {
+        Swal.showValidationMessage('請輸入有效金額');
+        return false;
+      }
+      return val;
+    }
+  }).then(async (res) => {
+    if (res.isConfirmed) {
+      const paidVal = res.value;
+      const month = getCurrentMonth();
+      
+      if (!state.rentStatus[userId]) state.rentStatus[userId] = {};
+      state.rentStatus[userId].status = 'confirmed';
+      
+      const prev = state.balance;
+      state.balance += paidVal;
+      animateNum(document.getElementById('pool-balance'), prev, state.balance);
+      
+      const note = `🏠 ${displayName} 預繳下月房租`;
+      
+      if (db) {
+        try {
+          await db.from('rent_status').upsert([{ 
+            user_id: userId, 
+            billing_month: month, 
+            status: 'confirmed' 
+          }], { onConflict: 'billing_month,user_id' });
+          await db.from('money_records').insert([{ 
+            type: 'deposit', 
+            amount: paidVal, 
+            note: note, 
+            operator_id: state.user.id || state.user.name 
+          }]);
+        } catch(e) {
+          console.error(e);
         }
+      }
+      
+      showToast(`✅ 已結清 ${displayName} 的固定房租！`);
+      renderRentList();
+      refreshLedger();
+    }
+  });
+}
 
-        // ==================== 動作與事件處理：儲值入帳 ====================
-        async function handleDepositSubmit() {
-            const amount = parseFloat(document.getElementById('deposit-amount').value);
-            const note = document.getElementById('deposit-note').value || "公積金儲值入帳";
-
-            if (!amount || amount <= 0) {
-                alert("請輸入正確的儲值金額！");
-                return;
-            }
-
-            const { error } = await _supabase
-                .from('money_records')
-                .insert([{ type: 'deposit', amount: amount, note: note, operator: currentUserName }]);
-
-            if (!error) {
-                alert("🎉 儲值成功！金庫餘額已更新！");
-                closeModal('deposit-modal');
-                fetchDataFromSupabase();
-                // 清空欄位
-                document.getElementById('deposit-amount').value = '';
-                document.getElementById('deposit-note').value = '';
-            } else {
-                alert("寫入失敗，請確認資料庫線路。");
-            }
+function payElectricity(userId, amount) {
+  const displayName = getMemberName(userId);
+  Swal.fire({
+    title: '🔌 繳納當期水電',
+    html: `
+      <div class="text-left space-y-2">
+        <p class="text-xs text-gray-500">請確認匯款金額：</p>
+        <input type="number" id="pay-elec-amount" class="swal2-input !m-0 !w-full" value="${amount}">
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '確認繳款',
+    cancelButtonText: '取消',
+    confirmButtonColor: '#3b82f6',
+    preConfirm: () => {
+      const val = parseFloat(document.getElementById('pay-elec-amount').value);
+      if (isNaN(val) || val <= 0) {
+        Swal.showValidationMessage('請輸入有效金額');
+        return false;
+      }
+      return val;
+    }
+  }).then(async (res) => {
+    if (res.isConfirmed) {
+      const paidVal = res.value;
+      const month = getCurrentMonth();
+      
+      if (!state.rentStatus[userId]) state.rentStatus[userId] = {};
+      state.rentStatus[userId].elec_status = 'confirmed';
+      
+      const prev = state.balance;
+      state.balance += paidVal;
+      animateNum(document.getElementById('pool-balance'), prev, state.balance);
+      
+      const note = `⚡ ${displayName} 結清當期水電`;
+      
+      if (db) {
+        try {
+          await db.from('rent_status').upsert([{ 
+            user_id: userId, 
+            billing_month: month, 
+            elec_status: 'confirmed' 
+          }], { onConflict: 'billing_month,user_id' });
+          await db.from('money_records').insert([{ 
+            type: 'deposit', 
+            amount: paidVal, 
+            note: note, 
+            operator_id: state.user.id || state.user.name 
+          }]);
+        } catch(e) {
+          console.error(e);
         }
+      }
+      
+      showToast(`✅ 已結清 ${displayName} 的當期水電！`);
+      renderRentList();
+      refreshLedger();
+    }
+  });
+}
 
-        // ==================== 動作與事件處理：打掃打卡 ====================
-        async function fetchChores() {
-            try {
-                const { data, error } = await _supabase
-                    .from('chore_done_log')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(5);
-                
-                if (!error && data) {
-                    const now = new Date();
-                    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-                    const weekCount = data.filter(d => new Date(d.created_at) >= weekAgo).length;
-                    document.getElementById('weekly-chore-count').innerText = `本週 ${weekCount} 次`;
-                    
-                    if (data.length === 0) {
-                        document.getElementById('chore-list').innerHTML = `<div class="text-center text-slate-400 text-xs py-2">還沒有人打卡，趕快去幫忙吧！</div>`;
-                        return;
-                    }
-                    
-                    document.getElementById('chore-list').innerHTML = data.map(c => {
-                        let icon = '✨';
-                        if(c.chore_name.includes('垃圾')) icon = '🗑️';
-                        if(c.chore_name.includes('地')) icon = '🧹';
-                        if(c.chore_name.includes('廁')) icon = '🚽';
-                        
-                        return `
-                        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                            <div class="flex items-center space-x-3">
-                                <div class="bg-white shadow-sm w-8 h-8 rounded-full flex items-center justify-center text-sm border border-slate-100">${icon}</div>
-                                <div>
-                                    <p class="text-sm font-semibold text-slate-700">${c.chore_name}</p>
-                                    <p class="text-[10px] text-slate-400">經手人: ${c.done_by}</p>
-                                </div>
-                            </div>
-                            <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">完成 🎉</span>
-                        </div>
-                        `;
-                    }).join('');
-                } else {
-                    document.getElementById('chore-list').innerHTML = `<div class="text-center text-slate-400 text-xs py-2">尚未建立資料表</div>`;
-                }
-            } catch(e) {}
-        }
+// 🌟 一鍵整合撈取「其他分頁」的所有最新動態
+async function fetchAndRenderOtherTab() {
+  try {
+    if (typeof renderChoreList === 'function') { renderChoreList(); }
 
-        async function handleChore(choreName) {
-            const { error } = await _supabase
-                .from('chore_done_log')
-                .insert([{ chore_name: choreName, done_by: currentUserName }]);
-            
-            if (!error) {
-                alert(`✅ 感謝 ${currentUserName} 幫忙「${choreName}」！辛苦了！`);
-                fetchChores();
-            } else {
-                alert("打卡失敗，請確認資料庫有建立 chore_done_log 表格 (欄位: chore_name, done_by)。");
-            }
-        }
+    let memos = [];
+    if (db) {
+      const { data } = await db.from('memo_records').select('*').order('id', { ascending: false });
+      memos = data || [];
+    } else {
+      memos = [
+        { id: 1, content: 'WiFi 密碼是 sweet-home-520 🔑', category: 'home', user_id: 'A' },
+        { id: 2, content: '每週二晚上會有垃圾車 🗑️', category: 'home', user_id: 'B' },
+        { id: 3, content: '下週五前要繳交公積金報表 💼', category: 'work', user_id: 'C' },
+        { id: 4, content: '記得跟房東確認水電收據 📄', category: 'work', user_id: 'A' }
+      ];
+    }
 
-        // ==================== 動作與事件處理：房租狀態 ====================
-        const MEMBERS = [
-            { id: 'A', name: '隊員 A', rentAmount: 8000, color: 'bg-teal-50 text-teal-600 border-teal-100' },
-            { id: 'B', name: '隊員 B', rentAmount: 7500, color: 'bg-amber-50 text-amber-600 border-amber-100' },
-            { id: 'C', name: '隊員 C', rentAmount: 7500, color: 'bg-rose-50 text-rose-600 border-rose-100' }
+    const homeContainer = document.getElementById('memo-home-container');
+    const workContainer = document.getElementById('memo-work-container');
+
+    if (homeContainer && workContainer) {
+      const homeMemos = memos.filter(m => m.category === 'home' || !m.category || m.category === '租屋處');
+      const workMemos = memos.filter(m => m.category === 'work' || m.category === '工作');
+
+      if (homeMemos.length === 0) {
+        homeContainer.innerHTML = '<div class="col-span-2 text-center text-gray-400 text-xs py-4">目前沒有租屋生活備忘～</div>';
+      } else {
+        homeContainer.innerHTML = homeMemos.map(m => `
+          <div class="bg-emerald-50/50 border border-emerald-100/60 p-3 rounded-2xl flex flex-col justify-between min-h-[95px]">
+            <p class="text-xs font-bold text-gray-700 leading-relaxed break-all">${m.content}</p>
+            <div class="flex items-center justify-between mt-2 pt-1 border-t border-emerald-200/40">
+              <span class="text-[10px] text-emerald-600 font-medium">✍️ ${getMemberName(m.user_id)}</span>
+              <button onclick="handleDeleteMemo(${m.id})" class="text-gray-300 hover:text-red-400 text-[10px] px-1 cursor-pointer">✕</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      if (workMemos.length === 0) {
+        workContainer.innerHTML = '<div class="col-span-2 text-center text-gray-400 text-xs py-4">目前沒有工作公事備忘～</div>';
+      } else {
+        workContainer.innerHTML = workMemos.map(m => `
+          <div class="bg-blue-50/50 border border-blue-100/60 p-3 rounded-2xl flex flex-col justify-between min-h-[95px]">
+            <p class="text-xs font-bold text-gray-700 leading-relaxed break-all">${m.content}</p>
+            <div class="flex items-center justify-between mt-2 pt-1 border-t border-blue-200/40">
+              <span class="text-[10px] text-blue-600 font-medium">✍️ ${getMemberName(m.user_id)}</span>
+              <button onclick="handleDeleteMemo(${m.id})" class="text-gray-300 hover:text-red-400 text-[10px] px-1 cursor-pointer">✕</button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // 3. 訪客預報牆
+    let visitors = [];
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (db) {
+      const { data } = await db.from('visitor_records').select('*').gte('visit_date', todayStr).order('visit_date', { ascending: true });
+      visitors = data || [];
+    } else {
+      if (!state.localVisitors) {
+        state.localVisitors = [
+          { id: 1, visitor_name: '大學死黨 3 人', gender: '其他', relation: '大學同學', visit_date: todayStr, notes: '會留宿一晚，有打過招呼了', user_id: 'B' }
         ];
+      }
+      visitors = state.localVisitors.filter(v => v.visit_date >= todayStr).sort((a,b) => a.visit_date.localeCompare(b.visit_date));
+    }
 
-        function getCurrentMonthStr() {
-            const d = new Date();
-            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        }
-
-        let currentRentStatus = {};
-
-        async function fetchRentStatus() {
-            const month = getCurrentMonthStr();
-            document.getElementById('rent-month-label').innerText = `${month} 期`;
-            try {
-                const { data, error } = await _supabase
-                    .from('rent_status')
-                    .select('*')
-                    .eq('billing_month', month);
-                
-                currentRentStatus = {};
-                if (!error && data) {
-                    data.forEach(r => { currentRentStatus[r.user_id] = r.status; });
-                }
-                renderRentList();
-            } catch(e) {}
-        }
-
-        function renderRentList() {
-            const container = document.getElementById('rent-list');
-            container.innerHTML = MEMBERS.map(m => {
-                const status = currentRentStatus[m.id] || 'unpaid';
-                let statusHtml = '';
-                let borderClass = 'border-slate-100';
-                
-                if (status === 'confirmed') {
-                    borderClass = 'border-emerald-200 bg-emerald-50/30';
-                    statusHtml = `<span class="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded border border-emerald-200">已繳清 ✅</span>`;
-                } else if (status === 'paid') {
-                    borderClass = 'border-amber-200 bg-amber-50/30';
-                    // 總管可以看到「確認入帳」按鈕
-                    statusHtml = `
-                        <div class="flex flex-col items-end">
-                            <span class="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded border border-amber-200 mb-1.5">待總管確認 ⏳</span>
-                            <button onclick="updateRent('${m.id}', 'confirmed')" class="text-[10px] font-bold text-white bg-slate-800 px-2 py-1 rounded shadow-sm hover:bg-slate-700 transition">確認入帳</button>
-                        </div>
-                    `;
-                } else {
-                    borderClass = 'border-rose-200 bg-rose-50/20';
-                    statusHtml = `
-                        <div class="flex flex-col items-end">
-                            <span class="text-xs font-bold text-rose-500 mb-1.5">未繳 ❌</span>
-                            <button onclick="updateRent('${m.id}', 'paid')" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded shadow-sm hover:bg-indigo-100 transition">我已匯款</button>
-                        </div>
-                    `;
-                }
-
-                return `
-                <div class="flex items-center justify-between p-3 rounded-xl border ${borderClass} transition-colors">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border ${m.color}">
-                            ${m.id}
-                        </div>
-                        <div>
-                            <p class="text-sm font-bold text-slate-700">${m.name}</p>
-                            <p class="text-[11px] text-slate-400 font-medium tracking-wide">應繳: $${m.rentAmount.toLocaleString()}</p>
-                        </div>
-                    </div>
-                    ${statusHtml}
+    const visitContainer = document.getElementById('visitor-list-container');
+    if (visitContainer) {
+      if (visitors.length === 0) {
+        visitContainer.innerHTML = '<div class="text-center text-gray-400 text-xs py-4">🙌 近期家裡很清靜，沒有訪客預報～</div>';
+      } else {
+        visitContainer.innerHTML = visitors.map(v => {
+          const d = new Date(v.visit_date);
+          let nameStr = v.visitor_name;
+          if (v.gender || v.relation) {
+            const parts = [];
+            if (v.gender) parts.push(v.gender);
+            if (v.relation) parts.push(v.relation);
+            nameStr += ` (${parts.join(' ・ ')})`;
+          }
+          return `
+            <div class="flex items-center justify-between p-3 rounded-2xl border border-gray-100 bg-gray-50/40">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-xs font-bold flex-shrink-0">🙋</div>
+                <div class="min-w-0">
+                  <p class="text-xs font-extrabold text-gray-800 truncate">${nameStr} <span class="text-[9px] font-bold text-teal-600 bg-teal-50 px-1 ml-1">${d.getMonth()+1}/${d.getDate()}</span></p>
+                  <p class="text-[10px] text-gray-400 truncate mt-0.5">主辦: ${getMemberName(v.user_id)} ・ 備註: ${v.notes || '無'}</p>
                 </div>
-                `;
-            }).join('');
-        }
+              </div>
+              <button onclick="handleDeleteVisitor(${v.id})" class="text-gray-300 hover:text-red-400 text-xs px-1 cursor-pointer">✕</button>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+  } catch (e) { console.error(e); }
+}
 
-        async function updateRent(userId, status) {
-            const month = getCurrentMonthStr();
-            // 先嘗試 upsert
-            const { error } = await _supabase
-                .from('rent_status')
-                .upsert([{ user_id: userId, billing_month: month, status: status }], { onConflict: 'billing_month,user_id' });
-            
-            if (!error) {
-                if (status === 'paid') alert(`✅ 已標記為「已匯款」，請等待對帳！`);
-                if (status === 'confirmed') alert(`🎉 已確認 ${userId} 的房租入帳！`);
-                fetchRentStatus();
-            } else {
-                alert("更新失敗，請確認資料庫有建立 rent_status 表格 (欄位: user_id, billing_month, status)。");
-            }
+// 彈出並黏上新備忘錄
+function openMemoModal() {
+  Swal.fire({
+    title: '📌 留下備忘錄 / 留言',
+    html: `
+      <div class="text-left space-y-3 px-3 mt-2">
+        <label class="block text-xs font-bold text-gray-400">貼到哪裡？</label>
+        <div class="flex bg-gray-100 rounded-xl p-1 mt-1">
+          <button id="btn-memo-home" type="button" onclick="setMemoCategory('home')" class="flex-1 py-2 rounded-lg text-xs font-extrabold bg-white text-gray-900 shadow-sm transition-all">🏠 租屋生活</button>
+          <button id="btn-memo-work" type="button" onclick="setMemoCategory('work')" class="flex-1 py-2 rounded-lg text-xs font-extrabold text-gray-400 transition-all">💼 工作公事</button>
+        </div>
+        
+        <label class="block text-xs font-bold text-gray-400 mt-3">筆記內容</label>
+        <textarea id="swal-memo-content" class="swal2-textarea !m-0 !w-full !text-sm" rows="3" placeholder="例如：WiFi密碼是...、今日公事代辦..."></textarea>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '貼上便條紙',
+    cancelButtonText: '取消',
+    confirmButtonColor: '#00A676',
+    didOpen: () => {
+      window._currentMemoCategory = 'home';
+      window.setMemoCategory = (cat) => {
+        window._currentMemoCategory = cat;
+        const homeBtn = document.getElementById('btn-memo-home');
+        const workBtn = document.getElementById('btn-memo-work');
+        if (cat === 'home') {
+          homeBtn.className = "flex-1 py-2 rounded-lg text-xs font-extrabold bg-white text-gray-900 shadow-sm transition-all";
+          workBtn.className = "flex-1 py-2 rounded-lg text-xs font-extrabold text-gray-400 transition-all";
+        } else {
+          workBtn.className = "flex-1 py-2 rounded-lg text-xs font-extrabold bg-white text-gray-900 shadow-sm transition-all";
+          homeBtn.className = "flex-1 py-2 rounded-lg text-xs font-extrabold text-gray-400 transition-all";
         }
+      };
+    },
+    preConfirm: () => {
+      const content = document.getElementById('swal-memo-content').value.trim();
+      const category = window._currentMemoCategory;
+      if (!content) { Swal.showValidationMessage('內容不能留白喔！'); return false; }
+      return { content, category };
+    }
+  }).then(async (res) => {
+    if (res.isConfirmed) {
+      const { content, category } = res.value;
+      if (db) {
+        try {
+          await db.from('memo_records').insert([{ content, category, user_id: state.user.id || state.user.name }]);
+        } catch(e) {
+          // Fallback if category column doesn't exist yet
+          await db.from('memo_records').insert([{ content, user_id: state.user.id || state.user.name }]);
+        }
+      }
+      showToast('✅ 成功貼上便利貼！');
+      fetchAndRenderOtherTab();
+    }
+  });
+}
 
-        // ==================== 彈出視窗開關 UI 控制工具 ====================
-        function openModal(id) {
-            const modal = document.getElementById(id);
-            modal.classList.remove('pointer-events-none', 'opacity-0');
-            modal.firstElementChild.classList.remove('translate-y-10');
-        }
-        function closeModal(id) {
-            const modal = document.getElementById(id);
-            modal.classList.add('pointer-events-none', 'opacity-0');
-            modal.firstElementChild.classList.add('translate-y-10');
-        }
+async function handleDeleteMemo(id) {
+  if (db) { await db.from('memo_records').delete().eq('id', id); }
+  showToast('🗑️ 便條紙已撕下');
+  fetchAndRenderOtherTab();
+}
 
-        // 網頁加載完畢後立刻執行 LINE LIFF 初始化
-        window.onload = initLIFF;
-    </script>
+function openVisitorModal() {
+  Swal.fire({
+    title: '📅 新增訪客預報',
+    html: `
+      <div class="text-left space-y-4 px-3 mt-2">
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">🧑🤝🧑 訪客姓名 / 稱呼 *</label>
+          <input id="swal-visitor-name" class="swal2-input !m-0 !w-full !text-sm" placeholder="例如：王小明">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">⚧ 訪客性別 *</label>
+          <div class="flex gap-4 items-center mt-1">
+            <label class="flex items-center gap-1.5 text-xs font-bold text-gray-600 cursor-pointer">
+              <input type="radio" name="swal-visitor-gender" value="男" checked class="w-4 h-4 accent-[#00A676]"> 男
+            </label>
+            <label class="flex items-center gap-1.5 text-xs font-bold text-gray-600 cursor-pointer">
+              <input type="radio" name="swal-visitor-gender" value="女" class="w-4 h-4 accent-[#00A676]"> 女
+            </label>
+            <label class="flex items-center gap-1.5 text-xs font-bold text-gray-600 cursor-pointer">
+              <input type="radio" name="swal-visitor-gender" value="其他" class="w-4 h-4 accent-[#00A676]"> 其他
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">❤️ 彼此關係 *</label>
+          <select id="swal-visitor-relation" class="swal2-select !m-0 !w-full !text-sm !h-10 border border-gray-200 rounded-lg px-2" onchange="toggleRelationInput(this.value)">
+            <option value="大學同學">大學同學</option>
+            <option value="職場同事">職場同事</option>
+            <option value="閃光(另一半)">閃光(另一半)</option>
+            <option value="家人">家人</option>
+            <option value="只是朋友">只是朋友</option>
+            <option value="其他">其他 (自行輸入)</option>
+          </select>
+          <input id="swal-visitor-relation-other" class="swal2-input !m-0 !w-full !mt-2 !text-sm hidden" placeholder="請輸入關係（例如：國小同學）">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-400 mb-1">📅 預計來訪日期 & 備註</label>
+          <input id="swal-visitor-date" type="date" class="swal2-input !m-0 !w-full !text-sm mb-2">
+          <textarea id="swal-visitor-notes" class="swal2-textarea !m-0 !w-full !text-sm" rows="2" placeholder="例如：會過夜 2 天、晚上會一起在客廳吃火鍋"></textarea>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '登記訪客',
+    cancelButtonText: '取消',
+    confirmButtonColor: '#00A676',
+    didOpen: () => {
+      window.toggleRelationInput = (val) => {
+        const otherInput = document.getElementById('swal-visitor-relation-other');
+        if (otherInput) {
+          if (val === '其他') {
+            otherInput.classList.remove('hidden');
+          } else {
+            otherInput.classList.add('hidden');
+          }
+        }
+      };
+    },
+    preConfirm: () => {
+      const name = document.getElementById('swal-visitor-name').value.trim();
+      const date = document.getElementById('swal-visitor-date').value;
+      const notes = document.getElementById('swal-visitor-notes').value.trim();
+      const genderEl = document.querySelector('input[name="swal-visitor-gender"]:checked');
+      const gender = genderEl ? genderEl.value : '其他';
+      const relationSelect = document.getElementById('swal-visitor-relation').value;
+      let relation = relationSelect;
+      if (relationSelect === '其他') {
+        relation = document.getElementById('swal-visitor-relation-other').value.trim();
+        if (!relation) {
+          Swal.showValidationMessage('請填寫自訂關係喔！');
+          return false;
+        }
+      }
+      if (!name || !date) {
+        Swal.showValidationMessage('請填寫訪客名稱與來訪日期喔！');
+        return false;
+      }
+      return { name, date, notes, gender, relation };
+    }
+  }).then(async (res) => {
+    if (res.isConfirmed) {
+      const { name, date, notes, gender, relation } = res.value;
+      if (db) {
+        try {
+          await db.from('visitor_records').insert([{ 
+            visitor_name: name, 
+            visit_date: date, 
+            notes: notes, 
+            gender: gender,
+            relation: relation,
+            user_id: state.user.id || state.user.name 
+          }]);
+        } catch (e) {
+          const fallbackName = `${name} (${gender} ・ ${relation})`;
+          await db.from('visitor_records').insert([{ 
+            visitor_name: fallbackName, 
+            visit_date: date, 
+            notes: notes, 
+            user_id: state.user.id || state.user.name 
+          }]);
+        }
+      } else {
+        if (!state.localVisitors) state.localVisitors = [];
+        state.localVisitors.push({
+          id: Date.now(),
+          visitor_name: name,
+          visit_date: date,
+          notes: notes,
+          gender: gender,
+          relation: relation,
+          user_id: state.user.id || state.user.name
+        });
+      }
+      showToast('✅ 成功報備訪客！');
+      fetchAndRenderOtherTab();
+    }
+  });
+}
+
+async function handleDeleteVisitor(id) {
+  if (db) { 
+    await db.from('visitor_records').delete().eq('id', id); 
+  } else {
+    if (state.localVisitors) {
+      state.localVisitors = state.localVisitors.filter(v => v.id !== id);
+    }
+  }
+  showToast('🗑️ 訪客預報已取消');
+  fetchAndRenderOtherTab();
+}
+</script>
 </body>
 </html>
